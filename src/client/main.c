@@ -41,6 +41,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
+#include <getopt.h>
+#include <assert.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "main.h"
@@ -50,6 +52,24 @@
 
 static void sighandler(int signo);
 
+static struct option long_options[] = {
+    {"port",    required_argument, 0, 'p'},
+    {"help",    no_argument,       0, 'h'},
+    {"client",  no_argument,       0, 'h'},
+    {"server",  no_argument,       0, 'h'},
+    {"ip",      required_argument, 0, 'h'},
+    {"file",    required_argument, 0, 'h'},
+    {0,         0,                 0, 0}
+};
+
+#define print_help() \
+    do { \
+        printf("-p/--port - Set the port\n"); \
+        printf("-c/--client - Sets the binary in client mode (incompatible with server mode)\n"); \
+        printf("-s/--server - Sets the binary in server mode (incompatible with client mode)\n"); \
+        printf("-h/--help - Display this message\n"); \
+    } while(0)
+
 int main(int argc, char **argv) {
 #ifndef NDEBUG
     //performTests();
@@ -58,19 +78,28 @@ int main(int argc, char **argv) {
 
     isRunning = ATOMIC_VAR_INIT(1);
 
-    signal(SIGINT, sighandler);
-    signal(SIGHUP, sighandler);
-    signal(SIGQUIT, sighandler);
-    signal(SIGTERM, sighandler);
+    struct sigaction sigHandleList = {.sa_handler=sighandler};
+    sigaction(SIGINT,&sigHandleList,0);
+    sigaction(SIGHUP,&sigHandleList,0);
+    sigaction(SIGQUIT,&sigHandleList,0);
+    sigaction(SIGTERM,&sigHandleList,0);
 
-    int option;
     bool isClient = false; //Temp bool used to check if both client and server is chosen
     isServer = false;
 
     const char *portString = NULL;
+    const char *ipAddr = NULL;
+    const char *filename = NULL;
 
-    while ((option = getopt(argc, argv, "csp:")) != -1) {
-        switch (option) {
+    int inputFD = -1;
+
+    int c;
+    for (;;) {
+        int option_index = 0;
+        if ((c = getopt_long(argc, argv, "csp:i:f:h", long_options, &option_index)) == -1) {
+            break;
+        }
+        switch (c) {
             case 'c':
                 isClient = true;
                 isServer = false;
@@ -81,18 +110,47 @@ int main(int argc, char **argv) {
             case 'p':
                 portString = optarg;
                 break;
+            case 'i':
+                ipAddr = optarg;
+                break;
+            case 'f':
+                filename = optarg;
+                break;
+            case 'h':
+                //Intentional fallthrough
+            case '?':
+                //Intentional fallthrough
+            default:
+                print_help();
+                return EXIT_SUCCESS;
         }
     }
     if (isClient == isServer) {
         puts("This program must be run with either the -c or -s flag, but not both.");
         puts("Please re-run this program with one of the above flags.");
         puts("-c represents client mode, -s represents server mode");
+        puts("-h or --help will display a list of available flags");
         return EXIT_SUCCESS;
     }
-
     if (portString == NULL) {
         puts("No port set, reverting to port 1337");
         portString = "1337";
+    }
+    if (ipAddr == NULL) {
+        puts("No IP provided, will prompt for IP");
+    }
+    if (filename == NULL) {
+        puts("No filename provided, defaulting to stdin");
+        inputFD = STDIN_FILENO;
+    } else {
+        FILE *fp = fopen(filename, "rb");
+        if (fp == NULL) {
+            printf("Filename invalid\n");
+            print_help();
+            return EXIT_FAILURE;
+        }
+        inputFD = fileno(fp);
+        assert(inputFD != -1);
     }
 
     port = strtoul(portString, NULL, 0);
@@ -108,7 +166,7 @@ int main(int argc, char **argv) {
         startServer();
         close(listenSock);
     } else {
-        startClient();
+        startClient(ipAddr, portString, inputFD);
     }
 
     return EXIT_SUCCESS;
@@ -155,5 +213,6 @@ char *getUserInput(const char *prompt) {
 }
 
 void sighandler(int signo) {
+    (void)(signo);
     isRunning = 0;
 }

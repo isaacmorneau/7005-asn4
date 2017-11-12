@@ -306,13 +306,18 @@ bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const si
     return rtn;
 }
 
-void startClient(void) {
+void startClient(const char *ip, const char *portString, int inputFD) {
     network_init();
-    char *address = getUserInput("Enter the server's address: ");
-    char *portString = calloc(10, sizeof(char));
-    sprintf(portString, "%d", (unsigned short) (port));
 
-    int serverSock = establishConnection(address, portString);
+    int serverSock;
+    if (ip == NULL) {
+        char *address = getUserInput("Enter the server's address: ");
+        serverSock = establishConnection(address, portString);
+        free(address);
+    } else {
+        serverSock = establishConnection(ip, portString);
+    }
+
     if (serverSock == -1) {
         fprintf(stderr, "Unable to connect to server\n");
         goto clientCleanup;
@@ -324,12 +329,7 @@ void startClient(void) {
 
     struct client *serverEntry = &clientList[clientNum];
 
-    unsigned char *secretKey = exchangeKeys(&serverEntry->socket);
-
-    for (int i = 0; i < EVP_MD_size(EVP_sha256()); ++i) {
-        printf("%02x", secretKey[i]);
-    }
-    printf("\n");
+    exchangeKeys(&serverEntry->socket);
 
     int epollfd = createEpollFd();
 
@@ -344,15 +344,19 @@ void startClient(void) {
 
     //eventLoop(&epollfd);
 
+    unsigned char buffer[1024];
     while(isRunning) {
-        char *result = getUserInput("Enter your message: ");
-        sendEncryptedUserData((unsigned char *) result, strlen(result), serverEntry);
-        free(result);
+        int n = read(inputFD, buffer, 1024);
+        if (n <= 0) {
+            break;
+        }
+        printf("Read %d\n", n);
+        sendEncryptedUserData((unsigned char *) buffer, n, serverEntry);
     }
 
 clientCleanup:
-    free(address);
-    free(portString);
+    close(epollfd);
+    close(inputFD);
     network_cleanup();
 }
 
