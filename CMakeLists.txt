@@ -8,9 +8,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c11 -pedantic")
-set(CMAKE_CXX_FLAGS_DEBUG "-ggdb -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -flto")
+set(CMAKE_C_FLAGS "-Wall -Wextra -std=c11 -pedantic")
+set(CMAKE_C_FLAGS_DEBUG "-ggdb -O0")
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -flto")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
