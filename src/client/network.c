@@ -98,19 +98,19 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize) {
     }
     printf("\n");
 
-   PacketType type = *buffer;
-   uint16_t seq = ((uint16_t *)(buffer + 1))[0];
-   uint16_t ack = ((uint16_t *)(buffer + 1))[1];
-   uint16_t winSize = ((uint16_t *)(buffer + 1))[2];
+    PacketType type = *buffer;
+    uint16_t seq = ((uint16_t *)(buffer + 1))[0];
+    uint16_t ack = ((uint16_t *)(buffer + 1))[1];
+    uint16_t winSize = ((uint16_t *)(buffer + 1))[2];
 
-   printf("Packet Control Values:\n");
-   printf("Type: %d\nSeq: %d\nAck: %d\nWindow Size: %d\n", type, seq, ack, winSize);
+    printf("Packet Control Values:\n");
+    printf("Type: %d\nSeq: %d\nAck: %d\nWindow Size: %d\n", type, seq, ack, winSize);
 
-   printf("Packet contents stripped of headers: ");
-   for (size_t i = 0 ; i < bufsize - 7; ++i) {
+    printf("Packet contents stripped of headers: ");
+    for (size_t i = 0 ; i < bufsize - 7; ++i) {
         printf("%c", buffer[i + 7]);
-   }
-   printf("\n");
+    }
+    printf("\n");
 
 #endif
 }
@@ -372,6 +372,7 @@ void startClient(const char *ip, const char *portString, int inputFD) {
     }
 
 clientCleanup:
+    shutdown(serverSock, SHUT_WR);
     close(epollfd);
     close(inputFD);
     network_cleanup();
@@ -431,26 +432,52 @@ void *eventLoop(void *epollfd) {
                     //Regular read connection
                     int sock = ((struct client *) eventList[i].data.ptr)->socket;
 
-                    int sizeToRead;
-                    if (ioctl(sock, FIONREAD, &sizeToRead) == -1) {
-                        fatal_error("ioctl");
-                    }
-                    //Ensure base-level buffer size
-                    if (sizeToRead < 1024) {
-                        sizeToRead = 1024;
-                    }
+                    unsigned char *buffer = malloc(MAX_PACKET_SIZE);
+                    for (;;) {
+                        uint16_t sizeToRead = 0;
 
-                    //Double the given size to hopefully catch all the data at once
-                    unsigned char *buffer = malloc(2 * sizeToRead);
+                        int n = readNBytes(sock, (unsigned char *) &sizeToRead, sizeof(uint16_t));
+                        if (n == 0) {
+                            //Client has left us
+                            break;
+                        }
+                        assert(n == 2);
 
-                    int numRead;
-                    while ((numRead = readNBytes(sock, buffer, 2 * sizeToRead)) > 0) {
-                        debug_print_buffer("Received packet: ", buffer, numRead);
-                        decryptReceivedUserData(buffer, numRead, eventList[i].data.ptr);
-                        if (isServer) {
-                            send(sock, buffer, numRead, 0);
+                        assert(sizeToRead < MAX_PACKET_SIZE);
+                        assert(sizeToRead != 0);
+
+                        memcpy(buffer, &sizeToRead, sizeof(uint16_t));
+
+                        printf("Packet size to read: %d\n", sizeToRead);
+
+                        {
+                            unsigned char *tmpBuf = buffer + sizeof(uint16_t);
+                            uint16_t tmpSize = sizeToRead;
+
+                            int len;
+                            for (;;) {
+                                len = readNBytes(sock, tmpBuf, tmpSize);
+
+                                assert(len <= tmpSize);
+
+                                if (len == tmpSize) {
+                                    debug_print_buffer("Raw Received packet: ", buffer, sizeToRead + sizeof(uint16_t));
+                                    decryptReceivedUserData(buffer, sizeToRead + sizeof(uint16_t), eventList[i].data.ptr);
+                                    if (isServer) {
+                                        send(sock, buffer, sizeToRead + sizeof(uint16_t), 0);
+                                    }
+                                    break;
+                                }
+                                //Len must be less than tmpSize
+                                if (len < tmpSize) {
+                                    tmpBuf += len;
+                                    tmpSize -= len;
+                                    continue;
+                                }
+                            }
                         }
                     }
+                    free(buffer);
                 } else {
                     //Null data pointer means listen socket has incoming connection
                     for(;;) {

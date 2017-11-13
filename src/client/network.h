@@ -58,6 +58,14 @@ struct client {
 
 #define HEADER_SIZE ((sizeof(uint16_t) * 4) + sizeof(unsigned char))
 
+/*
+ * Length is 2 bytes
+ * Ciphertext can be max 1024
+ * IV is 16
+ * Hash size is 32
+ */
+#define MAX_PACKET_SIZE 1074
+
 extern bool isServer;
 extern EVP_PKEY *LongTermSigningKey;
 extern struct client *clientList;
