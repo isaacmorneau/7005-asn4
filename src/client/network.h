@@ -37,14 +37,26 @@
 #define NETWORK_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <openssl/evp.h>
+
+typedef enum {
+    NONE = 0x00,
+    SYN = 0x0f,
+    FIN = 0xf0
+} PacketType;
 
 struct client {
     int socket;
     unsigned char *sharedKey;
     EVP_PKEY *signingKey;
     bool enabled;
+    uint16_t seq;
+    uint16_t ack;
+    uint16_t windowSize;
 };
+
+#define HEADER_SIZE ((sizeof(uint16_t) * 4) + sizeof(unsigned char))
 
 extern bool isServer;
 extern EVP_PKEY *LongTermSigningKey;
