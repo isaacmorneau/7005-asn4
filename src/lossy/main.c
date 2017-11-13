@@ -108,7 +108,7 @@ int main(int argc, char ** argv) {
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
 
-#pragma omp parallel
+//#pragma omp parallel
     while (1) {
         int n, i;
 
