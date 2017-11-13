@@ -348,7 +348,9 @@ void startClient(const char *ip, const char *portString, int inputFD) {
 
     struct client *serverEntry = &clientList[clientNum];
 
-    exchangeKeys(&serverEntry->socket);
+    unsigned char *sharedSecret = exchangeKeys(&serverEntry->socket);
+
+    debug_print_buffer("Shared secret: ", sharedSecret, SYMMETRIC_KEY_SIZE);
 
     int epollfd = createEpollFd();
 
