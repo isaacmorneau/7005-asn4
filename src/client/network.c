@@ -445,7 +445,7 @@ void *eventLoop(void *epollfd) {
                         }
                         assert(n == 2);
 
-                        assert(sizeToRead < MAX_PACKET_SIZE);
+                        assert(sizeToRead < MAX_PACKET_SIZE + sizeof(uint16_t));
                         assert(sizeToRead != 0);
 
                         memcpy(buffer, &sizeToRead, sizeof(uint16_t));
@@ -454,7 +454,7 @@ void *eventLoop(void *epollfd) {
 
                         {
                             unsigned char *tmpBuf = buffer + sizeof(uint16_t);
-                            uint16_t tmpSize = sizeToRead;
+                            uint16_t tmpSize = sizeToRead - sizeof(uint16_t);
 
                             int len;
                             for (;;) {
@@ -463,10 +463,10 @@ void *eventLoop(void *epollfd) {
                                 assert(len <= tmpSize);
 
                                 if (len == tmpSize) {
-                                    debug_print_buffer("Raw Received packet: ", buffer, sizeToRead + sizeof(uint16_t));
-                                    decryptReceivedUserData(buffer, sizeToRead + sizeof(uint16_t), eventList[i].data.ptr);
+                                    debug_print_buffer("Raw Received packet: ", buffer, sizeToRead);
+                                    decryptReceivedUserData(buffer, sizeToRead, eventList[i].data.ptr);
                                     if (isServer) {
-                                        send(sock, buffer, sizeToRead + sizeof(uint16_t), 0);
+                                        send(sock, buffer, sizeToRead, 0);
                                     }
                                     break;
                                 }
@@ -587,7 +587,7 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
 
     assert(cipherLen <= mesgLen + HEADER_SIZE - sizeof(uint16_t) + BLOCK_SIZE);
 
-    uint16_t packetLength = cipherLen + IV_SIZE + HASH_SIZE;
+    uint16_t packetLength = cipherLen + IV_SIZE + HASH_SIZE + sizeof(uint16_t);
     //Write packet length to start of packet buffer
     memcpy(out, &packetLength, sizeof(uint16_t));
 
@@ -610,10 +610,10 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
     memmove(out + hmacIndex, hmac, hmacLen);
     OPENSSL_free(hmac);
 
-    debug_print_buffer("Sending packets with contents: ", out, packetLength + sizeof(uint16_t));
+    debug_print_buffer("Sending packets with contents: ", out, packetLength);
 
     //Write the packet to the socket
-    send(dest->socket, out, packetLength + sizeof(uint16_t), 0);
+    send(dest->socket, out, packetLength, 0);
 
     free(out);
 }
