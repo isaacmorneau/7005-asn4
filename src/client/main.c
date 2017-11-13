@@ -137,7 +137,9 @@ int main(int argc, char **argv) {
         portString = "1337";
     }
     if (ipAddr == NULL) {
-        puts("No IP provided, will prompt for IP");
+        if (!isServer) {
+            puts("No IP provided, will prompt for IP");
+        }
     }
     if (filename == NULL) {
         puts("No filename provided, defaulting to stdin");
@@ -171,8 +173,6 @@ int main(int argc, char **argv) {
 
     return EXIT_SUCCESS;
 }
-
-#define MAX_USER_BUFFER 1024
 
 char *getUserInput(const char *prompt) {
     char *buffer = calloc(MAX_USER_BUFFER, sizeof(char));
@@ -215,4 +215,18 @@ char *getUserInput(const char *prompt) {
 void sighandler(int signo) {
     (void)(signo);
     isRunning = 0;
+}
+
+void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size) {
+#ifndef NDEBUG
+    printf(prompt);
+    for (size_t i = 0; i < size; ++i) {
+        printf("%02x", buffer[i]);
+    }
+    printf("\n");
+#else
+    (void)(prompt);
+    (void)(buffer);
+    (void)(size);
+#endif
 }

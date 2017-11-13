@@ -39,8 +39,13 @@
 
 #include <signal.h>
 
+//Plaintext must be max 1008 to fit within 1024 bytes, and 7 of those bytes are header
+#define MAX_USER_BUFFER 1001
+
 volatile sig_atomic_t isRunning;
 
 char *getUserInput(const char *prompt);
+
+void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size);
 
 #endif
