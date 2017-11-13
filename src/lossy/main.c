@@ -12,28 +12,39 @@
 
 #include "wrapper.h"
 
-#define SOCKOPTS "p:h"
+#define SOCKOPTS "p:a:e:dch"
 #define MAXEVENTS 64
 
 void print_help() {
     printf("usage options:\n"
-            "\t [p]ort <1-65535> the port to listen to\n"
-            "\t [h]elp this message\n"
+            "\t [p]ort <1-65535>        - the port to listen to and forward to\n"
+            "\t [a]ddress <url || ip>   - the address forward to\n"
+            "\t [e]rror <percentage>    - the error rate to drop or corrupt\n"
+            "\t [d]rop                  - drop packets\n"
+            "\t [c]orrupt               - corrupt packets\n"
+            "\t [h]elp                  - this message\n"
           );
 }
 
 int main(int argc, char ** argv) {
-    char * listening_port = 0;
+    char * port= 0;
+    char * address = 0;
     //handle the arguments in its own scope
     {
         int c;
         for (;;) {
             int option_index = 0;
+
             static struct option long_options[] = {
                 {"port",    required_argument, 0, 'p'},
+                {"address", required_argument, 0, 'a'},
+                {"error",   required_argument, 0, 'e'},
+                {"drop",    no_argument,       0, 'd'},
+                {"corrupt", no_argument,       0, 'c'},
                 {"help",    no_argument,       0, 'h'},
                 {0,         0,                 0, 0}
             };
+
             c = getopt_long(argc, argv, SOCKOPTS, long_options, &option_index);
             if (c == -1) {
                 break;
@@ -41,7 +52,10 @@ int main(int argc, char ** argv) {
 
             switch (c) {
                 case 'p':
-                    listening_port = optarg;
+                    port = optarg;
+                    break;
+                case 'a':
+                    address = optarg;
                     break;
                 case 'h':
                 case '?':
@@ -50,7 +64,7 @@ int main(int argc, char ** argv) {
                     return 0;
             }
         }
-        if (!listening_port) {
+        if (!port || !address) {
             print_help();
             return 1;
         }
@@ -62,7 +76,7 @@ int main(int argc, char ** argv) {
     struct epoll_event *events;
     epoll_data * data;
     //make and bind the socket
-    sfd = make_bound(listening_port);
+    sfd = make_bound(port);
     if (sfd == -1) {
         return 2;
     }
@@ -114,8 +128,10 @@ int main(int argc, char ** argv) {
                     while (1) {
                         struct sockaddr in_addr;
                         socklen_t in_len;
-                        int infd, datafd;
+                        int infd, outfd;
                         char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+                        epoll_data * in_data;
+                        epoll_data * out_data;
 
                         in_len = sizeof in_addr;
                         infd = accept(sfd, &in_addr, &in_len);
@@ -135,6 +151,12 @@ int main(int argc, char ** argv) {
                             printf("Accepted connection on descriptor %d "
                                     "(host=%s, port=%s)\n", infd, hbuf, sbuf);
                         }
+                        outfd = make_connected(address, port);
+                        if (outfd == -1) {
+                            fprintf(stderr, "Failed to establish bridged connection\n");
+                            close(infd);
+                            continue;
+                        }
 
                         // Make the incoming socket non-blocking and add it to the
                         // list of fds to monitor.
@@ -142,13 +164,30 @@ int main(int argc, char ** argv) {
                         if (s == -1) {
                             abort();
                         }
+                        s = make_non_blocking(outfd);
+                        if (s == -1) {
+                            abort();
+                        }
 
-                        data = calloc(1, sizeof(epoll_data));
-                        epoll_data_init(data, infd);
+                        //create the epoll structures
+                        in_data = calloc(1, sizeof(epoll_data));
+                        out_data = calloc(1, sizeof(epoll_data));
+                        epoll_data_init(in_data, infd);
+                        epoll_data_init(out_data, outfd);
+                        //link the bridged connections
+                        in_data->link = out_data;
+                        out_data->link = in_data;
 
-                        event.data.ptr = data;
                         event.events = EPOLLIN | EPOLLOUT | EPOLLET;
+
+                        event.data.ptr = in_data;
                         s = epoll_ctl(efd, EPOLL_CTL_ADD, infd, &event);
+                        if (s == -1) {
+                            perror("epoll_ctl");
+                            abort();
+                        }
+                        event.data.ptr = out_data;
+                        s = epoll_ctl(efd, EPOLL_CTL_ADD, outfd, &event);
                         if (s == -1) {
                             perror("epoll_ctl");
                             abort();
@@ -156,14 +195,18 @@ int main(int argc, char ** argv) {
                     }
                     continue;
                 } else {
-                    //regular incomming message echo it back
-                    echo((epoll_data *)event.data.ptr);
+                    //read in the length of the packet and then the rest of the packet and loop on reading packets to ensure you got them all
+                    //then drop the ones due to the error rates
+                    //then send the rest on to the other side
+                    raw_packet pkt;
+                    packet_read((epoll_data *)events[i].data.ptr, &pkt);
+                    packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                 }
             } else {
                 //EPOLLOUT
                 //shoulnt happen but this means we would have blocked
                 //we are now notified that we can send the rest of the data
-                echo_harder((epoll_data *)event.data.ptr);
+                flush_send((epoll_data *)event.data.ptr);
             }
         }
     }
