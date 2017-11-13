@@ -15,7 +15,7 @@
 #define SOCKOPTS "p:a:e:dch"
 #define MAXEVENTS 64
 
-void print_help() {
+static inline void print_help() {
     printf("usage options:\n"
             "\t [p]ort <1-65535>        - the port to listen to and forward to\n"
             "\t [a]ddress <url || ip>   - the address forward to\n"
@@ -56,6 +56,12 @@ int main(int argc, char ** argv) {
                     break;
                 case 'a':
                     address = optarg;
+                    break;
+                case 'e':
+                    break;
+                case 'd':
+                    break;
+                case 'c':
                     break;
                 case 'h':
                 case '?':
@@ -200,13 +206,9 @@ int main(int argc, char ** argv) {
                     //then send the rest on to the other side
                     raw_packet pkt;
                     packet_read((epoll_data *)events[i].data.ptr, &pkt);
+                    printf("\npacket: '%.*s'\n\n", pkt.length-1, pkt.data);
                     packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                 }
-            } else {
-                //EPOLLOUT
-                //shoulnt happen but this means we would have blocked
-                //we are now notified that we can send the rest of the data
-                flush_send((epoll_data *)event.data.ptr);
             }
         }
     }

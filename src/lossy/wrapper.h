@@ -2,11 +2,8 @@
 #define WRAPPER_H
 #include "../packet.h"
 
-//we need a struct because non blocking reads and writes with
-//splice may not actually empty the pipes if it exits due to E_AGAIN
 typedef struct epoll_data_T {
     int fd;
-    int pipefd[2];
     struct epoll_data_T * link;
 } epoll_data;
 

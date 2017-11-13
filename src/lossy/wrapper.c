@@ -133,7 +133,6 @@ int packet_read(epoll_data * epd, raw_packet * packet) {
     }
     int len = 0;
     while (len < packet->length - 2) {
-        //read max standard pipe allocation size
         nr = read(epd->fd, packet->data + len, packet->length - 2 - len);
         if (nr <= 0) {
             if (errno != EAGAIN) {
@@ -146,56 +145,34 @@ int packet_read(epoll_data * epd, raw_packet * packet) {
     }
     return 1;
 }
+
 int packet_send(epoll_data * epd, raw_packet * packet) {
     int nr;
-    if ((nr = write(epd->pipefd[1], packet, packet->length)) == -1) {
+    for (int len = packet->length;len;) {
+        nr = write(epd->fd, packet, packet->length);
         if (nr <= 0) {
-            //this should never happen, its moving a packet into the pipe buffer
-            if (errno != EAGAIN) {
+            if (nr == -1 && errno != EAGAIN) {
                 perror("write");
                 return -1;
             }
-            return -2;
-        }
-    }
-    for (;;) {
-        nr = splice(epd->pipefd[0], 0, epd->fd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE);
-        if (nr <= 0) {
-            if (nr == -1 && errno != EAGAIN) {
-                perror("splice");
-                return -3;
-            }
             break;
         }
-    }
-    return 0;
-}
-
-int flush_send(epoll_data * epd) {
-    for (;;) {
-        int ret = splice(epd->pipefd[0], 0, epd->fd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE);
-        if (ret <= 0) {
-            if (ret == -1 && errno != EAGAIN) {
-                perror("splice");
-                return -1;
-            }
-            break;
-        }
+        len -= nr;
     }
     return 0;
 }
 
 void epoll_data_close(epoll_data * epd) {
-    close(epd->pipefd[0]);
-    close(epd->pipefd[1]);
+    //close(epd->pipefd[0]);
+    //close(epd->pipefd[1]);
     close(epd->fd);
 }
 
 int epoll_data_init(epoll_data * epd, int fd) {
     epd->fd = fd;
-    if (pipe(epd->pipefd)) {
-        perror("pipe");
-        return 1;
-    }
+    //if (pipe(epd->pipefd)) {
+    //    perror("pipe");
+    //    return 1;
+    //}
     return 0;
 }
