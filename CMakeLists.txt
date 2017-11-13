@@ -23,11 +23,11 @@ add_definitions(-D_DEFAULT_SOURCE)
 
 include_directories(src)
 
-set(LOSSY
-    src/lossy/main.c
-    src/lossy/wrapper.c
-    src/lossy/wrapper.h
+file(GLOB LOSSY
+    "src/lossy/*.c"
+    "src/lossy/*.h"
     )
+set(LOSSY ${LOSSY} "src/packet.h")
 
 file(GLOB MAIN
     "src/client/*.c"
@@ -47,10 +47,8 @@ find_package(Threads REQUIRED)
 
 find_package(OpenSSL REQUIRED)
 
-#I don't think we'll use these, but they're here in case we do
-#find_package(OpenMP REQUIRED)
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-#set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+find_package(OpenMP REQUIRED)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 
 add_executable(7005-asn4-lossy ${LOSSY})
 add_executable(7005-asn4 ${MAIN})

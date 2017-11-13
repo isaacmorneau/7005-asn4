@@ -12,6 +12,7 @@
 #include <limits.h>
 
 #include "wrapper.h"
+#include "../packet.h"
 
 #define BUFFSIZE 1024
 
@@ -61,6 +62,52 @@ int make_bound(const char * port) {
     return sfd;
 }
 
+int make_connected(const char * address, const char * port) {
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int s, sfd;
+
+    memset(&hints, 0, sizeof (struct addrinfo));
+    hints.ai_family = AF_UNSPEC;     // Return IPv4 and IPv6 choices
+    hints.ai_socktype = SOCK_STREAM; // We want a TCP socket
+    hints.ai_flags = AI_PASSIVE;     // All interfaces
+
+    s = getaddrinfo(address, port, &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror (s));
+        return -1;
+    }
+
+    for (rp = result; rp != 0; rp = rp->ai_next) {
+        sfd = socket(rp->ai_family, rp->ai_socktype | SOCK_NONBLOCK, rp->ai_protocol);
+        if (sfd == -1) {
+            continue;
+        }
+        int enable = 1;
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
+            perror("Socket options failed");
+            exit(EXIT_FAILURE);
+        }
+
+        s = connect(sfd, rp->ai_addr, rp->ai_addrlen);
+        if (s == 0) {
+            // We managed to bind successfully!
+            break;
+        }
+
+        close(sfd);
+    }
+
+    if (!rp) {
+        fprintf(stderr, "Unable to connect\n");
+        return -1;
+    }
+
+    freeaddrinfo(result);
+
+    return sfd;
+}
+
 int make_non_blocking(int sfd) {
     int flags, s;
 
@@ -80,41 +127,71 @@ int make_non_blocking(int sfd) {
     return 0;
 }
 
-int echo(epoll_data * epd) {
-    while (1) {
-        //read max standard pipe allocation size
-        int nr = splice(epd->fd, 0, epd->pipefd[1], 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
-        if (nr == -1 && errno != EAGAIN) {
-            perror("splice");
-        }
+int packet_read(epoll_data * epd, raw_packet * packet) {
+    int nr;
+    if ((nr = read(epd->fd, &(packet->length), 2)) == -1) {
         if (nr <= 0) {
+            if (errno != EAGAIN) {
+                perror("read");
+                return -1;
+            }
+            return 0;//nothing to read at all just say theres nothing
+        }
+    }
+    int len = 0;
+    while (len < packet->length - 2) {
+        //read max standard pipe allocation size
+        nr = read(epd->fd, packet->data + len, packet->length - 2 - len);
+        if (nr <= 0) {
+            if (errno != EAGAIN) {
+                perror("read");
+                return -2;
+            }
             break;
         }
-        do {
-            int ret = splice(epd->pipefd[0], 0, epd->fd, 0, nr, SPLICE_F_MOVE | SPLICE_F_MORE);
-            if (ret <= 0) {
-                if (ret == -1 && errno != EAGAIN) {
-                    perror("splice2");
-                }
-                break;
+        len += nr;
+    }
+    return 1;
+}
+int packet_send(epoll_data * epd, raw_packet * packet) {
+    int nr;
+    if ((nr = write(epd->pipefd[1], packet, packet->length)) == -1) {
+        if (nr <= 0) {
+            //this should never happen, its moving a packet into the pipe buffer
+            if (errno != EAGAIN) {
+                perror("write");
+                return -1;
             }
-            nr -= ret;
-        } while (nr);
+            return -2;
+        }
+    }
+    for (;;) {
+        nr = splice(epd->pipefd[0], 0, epd->fd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE);
+        if (nr <= 0) {
+            if (nr == -1 && errno != EAGAIN) {
+                perror("splice");
+                return -3;
+            }
+            break;
+        }
     }
     return 0;
 }
 
-int echo_harder(epoll_data * epd) {
-    while (1) {
+int flush_send(epoll_data * epd) {
+    for (;;) {
         int ret = splice(epd->pipefd[0], 0, epd->fd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE);
         if (ret <= 0) {
             if (ret == -1 && errno != EAGAIN) {
                 perror("splice");
+                return -1;
             }
             break;
         }
     }
+    return 0;
 }
+
 void epoll_data_close(epoll_data * epd) {
     close(epd->pipefd[0]);
     close(epd->pipefd[1]);
