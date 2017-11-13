@@ -544,7 +544,6 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
     unsigned char wrappedMesg[mesgLen + HEADER_SIZE - sizeof(uint16_t)];
 
     //Fill wrappedMesg with appropriate values
-    //memcpy(wrappedMesg, NONE, sizeof(unsigned char));
     memset(wrappedMesg, NONE, sizeof(unsigned char));
     memcpy(wrappedMesg + sizeof(unsigned char), &dest->seq, sizeof(uint16_t));
     memcpy(wrappedMesg + sizeof(unsigned char) + sizeof(uint16_t), &dest->ack, sizeof(uint16_t));
