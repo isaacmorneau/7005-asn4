@@ -1,9 +1,11 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 #include "../packet.h"
+#include "errors.h"
 
 typedef struct epoll_data_T {
     int fd;
+    errors er;
     struct epoll_data_T * link;
 } epoll_data;
 
