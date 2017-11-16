@@ -120,9 +120,9 @@ int main(int argc, char ** argv) {
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
-                // An error has occured on this fd, or the socket is not ready for reading
-                // though its odd we were notified.
-                fprintf (stderr, "epoll error\n");
+                //connection closed
+                epoll_data_close(((epoll_data *)events[i].data.ptr)->link);
+                free(((epoll_data *)events[i].data.ptr)->link);
                 epoll_data_close((epoll_data *)events[i].data.ptr);
                 free(events[i].data.ptr);
                 continue;
@@ -183,7 +183,7 @@ int main(int argc, char ** argv) {
                         in_data->link = out_data;
                         out_data->link = in_data;
 
-                        event.events = EPOLLIN | EPOLLOUT | EPOLLET;
+                        event.events = EPOLLIN | EPOLLOUT;
 
                         event.data.ptr = in_data;
                         s = epoll_ctl(efd, EPOLL_CTL_ADD, infd, &event);
@@ -204,16 +204,14 @@ int main(int argc, char ** argv) {
                     //then drop the ones due to the error rates
                     //then send the rest on to the other side
                     raw_packet pkt;
-                    int ret = 0;
-                    do {
-                        ret = packet_read((epoll_data *)events[i].data.ptr, &pkt);
+                    if (packet_read((epoll_data *)events[i].data.ptr, &pkt) == 1) {
                         if (handshake_delay-- > 0 || !errors_checkdrop(&er)) {
                             packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                             printf("packet sent\n");
                         } else {
                             printf("packet dropped\n");
                         }
-                    } while (ret);
+                    }
                 }
             }
         }
