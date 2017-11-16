@@ -11,17 +11,16 @@
 #include <omp.h>
 
 #include "wrapper.h"
+#include "errors.h"
 
-#define SOCKOPTS "p:a:e:dch"
+#define SOCKOPTS "p:a:e:h"
 #define MAXEVENTS 64
 
 static inline void print_help() {
     printf("usage options:\n"
             "\t [p]ort <1-65535>        - the port to listen to and forward to\n"
             "\t [a]ddress <url || ip>   - the address forward to\n"
-            "\t [e]rror <percentage>    - the error rate to drop or corrupt\n"
-            "\t [d]rop                  - drop packets\n"
-            "\t [c]orrupt               - corrupt packets\n"
+            "\t [e]rror <percentage>    - the error rate to drop\n"
             "\t [h]elp                  - this message\n"
           );
 }
@@ -29,6 +28,10 @@ static inline void print_help() {
 int main(int argc, char ** argv) {
     char * port= 0;
     char * address = 0;
+    char * drop = 0;
+    errors er;
+    int handshake_delay = 4;
+    er.loop = -1;
     //handle the arguments in its own scope
     {
         int c;
@@ -39,8 +42,6 @@ int main(int argc, char ** argv) {
                 {"port",    required_argument, 0, 'p'},
                 {"address", required_argument, 0, 'a'},
                 {"error",   required_argument, 0, 'e'},
-                {"drop",    no_argument,       0, 'd'},
-                {"corrupt", no_argument,       0, 'c'},
                 {"help",    no_argument,       0, 'h'},
                 {0,         0,                 0, 0}
             };
@@ -58,10 +59,8 @@ int main(int argc, char ** argv) {
                     address = optarg;
                     break;
                 case 'e':
-                    break;
-                case 'd':
-                    break;
-                case 'c':
+                    drop = optarg;
+                    errors_init(&er, drop);
                     break;
                 case 'h':
                 case '?':
@@ -114,7 +113,7 @@ int main(int argc, char ** argv) {
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
 
-//#pragma omp parallel
+    //#pragma omp parallel
     while (1) {
         int n, i;
 
@@ -205,13 +204,21 @@ int main(int argc, char ** argv) {
                     //then drop the ones due to the error rates
                     //then send the rest on to the other side
                     raw_packet pkt;
-                    packet_read((epoll_data *)events[i].data.ptr, &pkt);
-                    printf("\npacket: '%.*s'\n\n", pkt.length-1, pkt.data);
-                    packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
+                    int ret = 0;
+                    do {
+                        ret = packet_read((epoll_data *)events[i].data.ptr, &pkt);
+                        if (handshake_delay-- > 0 || !errors_checkdrop(&er)) {
+                            packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
+                            printf("packet sent\n");
+                        } else {
+                            printf("packet dropped\n");
+                        }
+                    } while (ret);
                 }
             }
         }
     }
+    errors_close(&er);
     free(events);
     close(sfd);
     return 0;
