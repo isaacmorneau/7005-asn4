@@ -53,6 +53,13 @@
         }\
     } while(0)
 
+#define nullCheckCryptoAPICall(pred) \
+    do {\
+        if ((pred) == NULL) {\
+            libcrypto_error();\
+        }\
+    } while(0)
+
 #define SYMMETRIC_KEY_SIZE 32
 #define IV_SIZE 16
 #define BLOCK_SIZE 16

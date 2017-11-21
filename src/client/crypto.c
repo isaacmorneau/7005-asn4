@@ -81,10 +81,8 @@ void fillRandom(unsigned char *buf, size_t n) {
 }
 
 EVP_PKEY *generateECKey(void) {
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-    if (pctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_PKEY_CTX *pctx;
+    nullCheckCryptoAPICall(pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL));
 
     checkCryptoAPICall(EVP_PKEY_paramgen_init(pctx));
 
@@ -94,10 +92,8 @@ EVP_PKEY *generateECKey(void) {
 
     checkCryptoAPICall(EVP_PKEY_paramgen(pctx, &params));
 
-    EVP_PKEY_CTX *kctx = EVP_PKEY_CTX_new(params, NULL);
-    if (kctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_PKEY_CTX *kctx;
+    nullCheckCryptoAPICall(kctx = EVP_PKEY_CTX_new(params, NULL));
 
     checkCryptoAPICall(EVP_PKEY_keygen_init(kctx) );
 
@@ -128,15 +124,11 @@ unsigned char *generateHMAC_Buffer(const unsigned char *mesg, size_t mlen, size_
         fprintf(stderr, "Tried to hmac with invalid values.\nMesg: %p\nmlen: %zu\nHMAC: %p\nKey: %p\n", (void *) mesg, mlen, (void *) hmaclen, (void *) key);
         exit(EXIT_FAILURE);
     }
-    unsigned char *out = OPENSSL_malloc(EVP_MAX_MD_SIZE);
-    if (out == NULL) {
-        libcrypto_error();
-    }
+    unsigned char *out;
+    nullCheckCryptoAPICall(out = OPENSSL_malloc(EVP_MAX_MD_SIZE));
 
-    unsigned char *rtn = HMAC(EVP_sha256(), key, keyLen, mesg, mlen, out, (unsigned int *) hmaclen);
-    if (rtn == NULL) {
-        libcrypto_error();
-    }
+    unsigned char *rtn;
+    nullCheckCryptoAPICall(rtn = HMAC(EVP_sha256(), key, keyLen, mesg, mlen, out, (unsigned int *) hmaclen));
     assert(rtn == out);
 
     return out;
@@ -177,10 +169,8 @@ bool verifyHMAC_Buffer(const unsigned char *mesg, size_t mlen, const unsigned ch
 }
 
 size_t encrypt(const unsigned char *plaintext, size_t plaintextlen, const unsigned char *key, const unsigned char *iv, unsigned char *ciphertext) {
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_CIPHER_CTX *ctx;
+    nullCheckCryptoAPICall(ctx = EVP_CIPHER_CTX_new());
 
     checkCryptoAPICall(EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv));
 
@@ -200,10 +190,8 @@ size_t encrypt(const unsigned char *plaintext, size_t plaintextlen, const unsign
 }
 
 size_t decrypt(const unsigned char *ciphertext, size_t ciphertextlen, const unsigned char *key, const unsigned char *iv, unsigned char *plaintext) {
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_CIPHER_CTX *ctx;
+    nullCheckCryptoAPICall(ctx = EVP_CIPHER_CTX_new());
 
     checkCryptoAPICall(EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv));
 
@@ -223,31 +211,25 @@ size_t decrypt(const unsigned char *ciphertext, size_t ciphertextlen, const unsi
 }
 
 unsigned char *getPublicKey(EVP_PKEY *pkey, size_t *keyLen) {
-    EC_KEY *eck = EVP_PKEY_get1_EC_KEY(pkey);
-    if (eck == NULL) {
-        libcrypto_error();
-    }
-    const EC_POINT *ecp = EC_KEY_get0_public_key(eck);
-    if (ecp == NULL) {
-        libcrypto_error();
-    }
-    BN_CTX *bnctx = BN_CTX_new();
-    if (bnctx == NULL) {
-        libcrypto_error();
-    }
-    EC_GROUP *ecg = EC_GROUP_new_by_curve_name(NID_secp521r1);
-    if (ecg == NULL) {
-        libcrypto_error();
-    }
+    EC_KEY *eck;
+    nullCheckCryptoAPICall(eck = EVP_PKEY_get1_EC_KEY(pkey));
+
+    const EC_POINT *ecp;
+    nullCheckCryptoAPICall(ecp = EC_KEY_get0_public_key(eck));
+
+    BN_CTX *bnctx;
+    nullCheckCryptoAPICall(bnctx = BN_CTX_new());
+
+    EC_GROUP *ecg;
+    nullCheckCryptoAPICall(ecg = EC_GROUP_new_by_curve_name(NID_secp521r1));
+
     size_t requiredLen = EC_POINT_point2oct(ecg, ecp, EC_GROUP_get_point_conversion_form(ecg), NULL, 0, bnctx);
     if (requiredLen == 0) {
         libcrypto_error();
     }
 
-    unsigned char *rtn = OPENSSL_malloc(requiredLen);
-    if (rtn == NULL) {
-        libcrypto_error();
-    }
+    unsigned char *rtn;
+    nullCheckCryptoAPICall(rtn = OPENSSL_malloc(requiredLen));
 
     *keyLen = EC_POINT_point2oct(ecg, ecp, EC_GROUP_get_point_conversion_form(ecg), rtn, requiredLen, bnctx);
     if (*keyLen == 0) {
@@ -261,25 +243,20 @@ unsigned char *getPublicKey(EVP_PKEY *pkey, size_t *keyLen) {
 }
 
 EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len) {
-    BN_CTX *bnctx = BN_CTX_new();
-    if (bnctx == NULL) {
-        libcrypto_error();
-    }
-    EC_GROUP *ecg = EC_GROUP_new_by_curve_name(NID_secp521r1);
-    if (ecg == NULL) {
-        libcrypto_error();
-    }
-    EC_POINT *ecp = EC_POINT_new(ecg);
-    if (ecp == NULL) {
-        libcrypto_error();
-    }
+    BN_CTX *bnctx;
+    nullCheckCryptoAPICall(bnctx = BN_CTX_new());
+
+    EC_GROUP *ecg;
+    nullCheckCryptoAPICall(ecg = EC_GROUP_new_by_curve_name(NID_secp521r1));
+
+    EC_POINT *ecp;
+    nullCheckCryptoAPICall(ecp = EC_POINT_new(ecg));
 
     checkCryptoAPICall(EC_POINT_oct2point(ecg, ecp, newPublic, len, bnctx));
 
-    EC_KEY *eck = EC_KEY_new_by_curve_name(NID_secp521r1);
-    if (eck == NULL) {
-        libcrypto_error();
-    }
+    EC_KEY *eck;
+    nullCheckCryptoAPICall(eck = EC_KEY_new_by_curve_name(NID_secp521r1));
+
     checkCryptoAPICall(EC_KEY_set_public_key(eck, ecp));
 
     EVP_PKEY *rtn = allocateKeyPair();
@@ -294,10 +271,8 @@ EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len) {
 }
 
 unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey) {
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(keypair, NULL);
-    if (ctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_PKEY_CTX *ctx;
+    nullCheckCryptoAPICall(ctx = EVP_PKEY_CTX_new(keypair, NULL));
 
     unsigned char *secretKey;
     size_t keyLen;
@@ -308,26 +283,19 @@ unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey) {
 
     checkCryptoAPICall(EVP_PKEY_derive(ctx, NULL, &keyLen));
 
-    secretKey = OPENSSL_malloc(keyLen);
-    if (secretKey == NULL) {
-        libcrypto_error();
-    }
+    nullCheckCryptoAPICall(secretKey = OPENSSL_malloc(keyLen));
 
     checkCryptoAPICall(EVP_PKEY_derive(ctx, secretKey, &keyLen));
 
-    EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-    if (mdctx == NULL) {
-        libcrypto_error();
-    }
+    EVP_MD_CTX *mdctx;
+    nullCheckCryptoAPICall(mdctx = EVP_MD_CTX_create());
 
     checkCryptoAPICall(EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL));
 
     checkCryptoAPICall(EVP_DigestUpdate(mdctx, secretKey, keyLen));
 
-    unsigned char *hashedSecret = OPENSSL_malloc(EVP_MD_size(EVP_sha256()));
-    if (hashedSecret == NULL) {
-        libcrypto_error();
-    }
+    unsigned char *hashedSecret;
+    nullCheckCryptoAPICall(hashedSecret = OPENSSL_malloc(EVP_MD_size(EVP_sha256())));
 
     unsigned int hashLen;
     checkCryptoAPICall(EVP_DigestFinal_ex(mdctx, hashedSecret, &hashLen));
@@ -342,9 +310,7 @@ unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey) {
 }
 
 EVP_PKEY *allocateKeyPair(void) {
-    EVP_PKEY *out = EVP_PKEY_new();
-    if (out == NULL) {
-        libcrypto_error();
-    }
+    EVP_PKEY *out;
+    nullCheckCryptoAPICall(out = EVP_PKEY_new());
     return out;
 }
