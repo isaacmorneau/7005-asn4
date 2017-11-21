@@ -146,7 +146,7 @@ unsigned char *exchangeKeys(const int * const sock) {
         debug_print_buffer("Sent Server sign key: ", tmpSigningKeyBuffer, packetLength);
 
         debug_print_buffer("Actual server sign key: ", signPubKey, pubKeyLen);
-        sendKey(*sock, tmpSigningKeyBuffer, packetLength);
+        rawSend(*sock, tmpSigningKeyBuffer, packetLength);
 
         packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
 
@@ -157,7 +157,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         debug_print_buffer("Sent Server ephemeral key: ", mesgBuffer, packetLength);
 
-        sendKey(*sock, mesgBuffer, packetLength);
+        rawSend(*sock, mesgBuffer, packetLength);
 
         packetLength = pubKeyLen + sizeof(uint16_t);
 
@@ -261,7 +261,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         debug_print_buffer("Sent client signing key: ", tmpSigningKeyBuffer, packetLength);
 
-        sendKey(*sock, tmpSigningKeyBuffer, packetLength);
+        rawSend(*sock, tmpSigningKeyBuffer, packetLength);
 
         packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
 
@@ -271,7 +271,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         debug_print_buffer("Sent client ephemeral key: ", mesgBuffer, packetLength);
 
-        sendKey(*sock, mesgBuffer, packetLength);
+        rawSend(*sock, mesgBuffer, packetLength);
 
         sharedSecret = getSharedSecret(ephemeralKey, serverPubKey);
 
@@ -287,18 +287,6 @@ unsigned char *exchangeKeys(const int * const sock) {
     clientEntry->sharedKey = sharedSecret;
 
     return sharedSecret;
-}
-
-void sendKey(const int sock, const unsigned char *buffer, const size_t bufSize) {
-sendKey:
-    if (send(sock, buffer, bufSize, 0) == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            //Non-blocking send would block, try again
-            goto sendKey;
-        } else {
-            fatal_error("Key send");
-        }
-    }
 }
 
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen) {
@@ -625,7 +613,7 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
     debug_print_buffer("Sending packets with contents: ", out, packetLength);
 
     //Write the packet to the socket
-    send(dest->socket, out, packetLength, 0);
+    rawSend(dest->socket, out, packetLength);
 
     free(out);
 }

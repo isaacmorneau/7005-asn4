@@ -77,7 +77,6 @@ void network_init(void);
 void network_cleanup(void);
 void process_packet(const unsigned char * const buffer, const size_t bufsize);
 unsigned char *exchangeKeys(const int * const sock);
-void sendKey(const int sock, const unsigned char *buffer, const size_t bufSize);
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen);
 void startClient(const char *ip, const char *portString, int inputFD);
 void startServer(void);

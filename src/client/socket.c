@@ -139,3 +139,23 @@ size_t readNBytes(const int sock, unsigned char *buf, size_t bufsize) {
     return origBufSize - bufsize;
 }
 
+void rawSend(const int sock, const unsigned char *buffer, size_t bufSize) {
+    ssize_t n;
+start:
+    if ((n = send(sock, buffer, bufSize, 0)) == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+            //Non-blocking send would block or interrupted, try again
+            goto start;
+        } else {
+            fatal_error("Socket send");
+        }
+    }
+    assert(n >= 0);
+    if ((size_t) n < bufSize) {
+        //Didn't send all the data, try again
+        bufSize -= n;
+        buffer += n;
+        goto start;
+    }
+}
+
