@@ -48,4 +48,8 @@ char *getUserInput(const char *prompt);
 
 void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size);
 
+void *checked_malloc(const size_t size);
+void *checked_calloc(const size_t nmemb, const size_t size);
+void *checked_realloc(void *ptr, const size_t size);
+
 #endif

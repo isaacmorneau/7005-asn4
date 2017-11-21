@@ -39,6 +39,7 @@
 #include <assert.h>
 #include "crypto.h"
 #include "test.h"
+#include "main.h"
 
 static bool testEncryptDecrypt(void);
 static bool testHMAC(void);
@@ -189,7 +190,7 @@ bool testKeyHMAC(void) {
     size_t hmacLen = 0;
     unsigned char *hmac = generateHMAC_PKEY(secondPubKey, secondPubKeyLen, &hmacLen, firstKey);
 
-    unsigned char *mesgBuffer = malloc(secondPubKeyLen + hmacLen);
+    unsigned char *mesgBuffer = checked_malloc(secondPubKeyLen + hmacLen);
     memcpy(mesgBuffer, secondPubKey, secondPubKeyLen);
     memcpy(mesgBuffer + secondPubKeyLen, hmac, hmacLen);
 

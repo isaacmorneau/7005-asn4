@@ -63,7 +63,7 @@ pthread_mutex_t clientLock;
 void network_init(void) {
     initCrypto();
     LongTermSigningKey = generateECKey();
-    clientList = calloc(10, sizeof(struct client));
+    clientList = checked_calloc(10, sizeof(struct client));
     clientCount = 1;
     pthread_mutex_init(&clientLock, NULL);
 }
@@ -150,10 +150,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
 
-        unsigned char *mesgBuffer = malloc(packetLength);
-        if (mesgBuffer == NULL) {
-            fatal_error("malloc");
-        }
+        unsigned char *mesgBuffer = checked_malloc(packetLength);
         memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
         memcpy(mesgBuffer + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
         memcpy(mesgBuffer + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
@@ -164,10 +161,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         packetLength = pubKeyLen + sizeof(uint16_t);
 
-        mesgBuffer = realloc(mesgBuffer, packetLength);
-        if (mesgBuffer == NULL) {
-            fatal_error("realloc");
-        }
+        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         int epollfd = createEpollFd();
 
@@ -177,10 +171,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         addEpollSocket(epollfd, *sock, &ev);
 
-        struct epoll_event *eventList = malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
-        if (eventList == NULL) {
-            fatal_error("malloc");
-        }
+        struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
 
         int nevents = waitForEpollEvent(epollfd, eventList);
         size_t n = 0;
@@ -204,10 +195,7 @@ unsigned char *exchangeKeys(const int * const sock) {
         clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
 
         packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
-        mesgBuffer = realloc(mesgBuffer, packetLength);
-        if (mesgBuffer == NULL) {
-            fatal_error("realloc");
-        }
+        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         if (!receiveAndVerifyKey(sock, mesgBuffer, packetLength, ephemeralPubKeyLen, hmaclen)) {
             fatal_error("HMAC verification");
@@ -221,10 +209,7 @@ unsigned char *exchangeKeys(const int * const sock) {
         free(mesgBuffer);
     } else {
         uint16_t packetLength = pubKeyLen + sizeof(uint16_t);
-        unsigned char *mesgBuffer = malloc(packetLength);
-        if (mesgBuffer == NULL) {
-            fatal_error("malloc");
-        }
+        unsigned char *mesgBuffer = checked_malloc(packetLength);
 
         int epollfd = createEpollFd();
 
@@ -234,10 +219,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         addEpollSocket(epollfd, *sock, &ev);
 
-        struct epoll_event *eventList = malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
-        if (eventList == NULL) {
-            fatal_error("malloc");
-        }
+        struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
 
         int nevents = waitForEpollEvent(epollfd, eventList);
         size_t n = 0;
@@ -263,10 +245,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
 
-        mesgBuffer = realloc(mesgBuffer, packetLength);
-        if (mesgBuffer == NULL) {
-            fatal_error("realloc");
-        }
+        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         if (!receiveAndVerifyKey(sock, mesgBuffer, packetLength, ephemeralPubKeyLen, hmaclen)) {
             fatal_error("HMAC verification");
@@ -334,7 +313,7 @@ bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const si
 
     addEpollSocket(epollfd, *sock, &ev);
 
-    struct epoll_event *eventList = malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
+    struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
 
     int nevents = waitForEpollEvent(epollfd, eventList);
     size_t n = 0;
@@ -444,10 +423,7 @@ void startServer(void) {
 void *eventLoop(void *epollfd) {
     int efd = *((int *)epollfd);
 
-    struct epoll_event *eventList = calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
-    if (eventList == NULL) {
-        fatal_error("calloc");
-    }
+    struct epoll_event *eventList = checked_calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
 
     while (isRunning) {
         int n = waitForEpollEvent(efd, eventList);
@@ -567,10 +543,7 @@ size_t addClient(int sock) {
         }
     }
     if (!foundEntry) {
-        clientList = realloc(clientList, sizeof(struct client) * clientCount * 2);
-        if (clientList == NULL) {
-            fatal_error("realloc");
-        }
+        clientList = checked_realloc(clientList, sizeof(struct client) * clientCount * 2);
         memset(clientList + clientCount, 0, sizeof(struct client) * clientCount);
         initClientStruct(clientList + clientCount, sock);
         ++clientCount;
@@ -603,10 +576,7 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
      * HASH_SIZE is for the HMAC
      * sizeof calls are related to header specific lengths
      */
-    unsigned char *out = malloc(HEADER_SIZE + mesgLen + BLOCK_SIZE + IV_SIZE + HASH_SIZE);
-    if (out == NULL) {
-        fatal_error("malloc");
-    }
+    unsigned char *out = checked_malloc(HEADER_SIZE + mesgLen + BLOCK_SIZE + IV_SIZE + HASH_SIZE);
 
     //Temp memset used for debugging primarily
     memset(out, 0, mesgLen + BLOCK_SIZE + IV_SIZE + HASH_SIZE);
@@ -671,10 +641,7 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, co
         return;
     }
 
-    unsigned char *plain = malloc(mesgLen);
-    if (plain == NULL) {
-        fatal_error("malloc");
-    }
+    unsigned char *plain = checked_malloc(mesgLen);
 
     size_t plainLen = decrypt(mesg + sizeof(uint16_t), mesgLen - HASH_SIZE - IV_SIZE - sizeof(uint16_t), src->sharedKey, mesg + mesgLen - HASH_SIZE - IV_SIZE, plain);
 

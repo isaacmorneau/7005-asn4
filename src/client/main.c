@@ -46,6 +46,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "main.h"
+#include "macro.h"
 #include "test.h"
 #include "socket.h"
 #include "network.h"
@@ -229,4 +230,28 @@ void debug_print_buffer(const char *prompt, const unsigned char *buffer, const s
     (void)(buffer);
     (void)(size);
 #endif
+}
+
+void *checked_malloc(const size_t size) {
+    void *rtn = malloc(size);
+    if (rtn == NULL) {
+        fatal_error("malloc");
+    }
+    return rtn;
+}
+
+void *checked_calloc(const size_t nmemb, const size_t size) {
+    void *rtn = calloc(nmemb, size);
+    if (rtn == NULL) {
+        fatal_error("calloc");
+    }
+    return rtn;
+}
+
+void *checked_realloc(void *ptr, const size_t size) {
+    void *rtn = realloc(ptr, size);
+    if (rtn == NULL) {
+        fatal_error("realloc");
+    }
+    return rtn;
 }
