@@ -34,6 +34,7 @@
  *
  */
 #include <pthread.h>
+#include <time.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
@@ -58,7 +59,15 @@ struct client *clientList;
 size_t clientCount;
 unsigned short port;
 int listenSock;
+
 pthread_mutex_t clientLock;
+pthread_cond_t cv;
+bool ackReceived = false;
+
+#define TIMEOUT_NS 100ul * (1000ul * 1000ul)
+#define MAX_RETRIES 3
+
+struct timespec timeToWait;
 
 void network_init(void) {
     initCrypto();
@@ -66,6 +75,7 @@ void network_init(void) {
     clientList = checked_calloc(10, sizeof(struct client));
     clientCount = 1;
     pthread_mutex_init(&clientLock, NULL);
+    pthread_cond_init(&cv, NULL);
 }
 
 void network_cleanup(void) {
@@ -77,6 +87,7 @@ void network_cleanup(void) {
         EVP_PKEY_free(clientList[i].signingKey);
     }
     pthread_mutex_destroy(&clientLock);
+    pthread_cond_destroy(&cv);
     free(clientList);
     cleanupCrypto();
 }
@@ -85,9 +96,29 @@ void network_cleanup(void) {
  * Does nothing intentionally.
  * This is to be replaced by the application's desired behaviour
  */
-void process_packet(const unsigned char * const buffer, const size_t bufsize) {
+void process_packet(const unsigned char * const buffer, const size_t bufsize, struct client *src) {
     (void)(buffer);
     (void)(bufsize);
+
+    if (buffer[0] == ACK) {
+        pthread_mutex_lock(&clientLock);
+
+        uint16_t ackVal;
+
+        //Grab ack value from buffer
+        memcpy(&ackVal, buffer + 3, sizeof(uint16_t));
+
+        if (ackVal == src->seq) {
+            //Received ack for a packet
+            ackReceived = true;
+            pthread_cond_broadcast(&cv);
+        } else {
+            //Received ack for older packet, or weird error, so ignore
+        }
+
+        pthread_mutex_unlock(&clientLock);
+    }
+
 #ifndef NDEBUG
     printf("Received packet of size %zu\n", bufsize);
     debug_print_buffer("Raw hex output: ", buffer, bufsize);
@@ -387,7 +418,8 @@ void startClient(const char *ip, const char *portString, int inputFD) {
             break;
         }
         printf("Read %d\n", n);
-        sendEncryptedUserData((unsigned char *) buffer, n, serverEntry, false);
+        sendReliablePacket((unsigned char *) buffer, n, serverEntry);
+        ++serverEntry->seq;
     }
 
 clientCleanup:
@@ -620,8 +652,6 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
     //Write the packet to the socket
     rawSend(dest->socket, out, packetLength);
 
-    ++dest->seq;
-
     free(out);
 }
 
@@ -645,7 +675,53 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
 
     size_t plainLen = decrypt(mesg + sizeof(uint16_t), mesgLen - HASH_SIZE - IV_SIZE - sizeof(uint16_t), src->sharedKey, mesg + mesgLen - HASH_SIZE - IV_SIZE, plain);
 
-    process_packet(plain, plainLen);
+    process_packet(plain, plainLen, src);
 
     free(plain);
+}
+
+void sendReliablePacket(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
+    int retryCount = 0;
+start:
+    pthread_mutex_lock(&clientLock);
+    ackReceived = false;
+    pthread_mutex_unlock(&clientLock);
+
+    sendEncryptedUserData(mesg, mesgLen, dest, false);
+
+    pthread_mutex_lock(&clientLock);
+    int n;
+wait:
+
+    clock_gettime(CLOCK_REALTIME, &timeToWait);
+    timeToWait.tv_nsec += TIMEOUT_NS;
+
+    n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
+    if (n == 0) {
+        if (ackReceived) {
+            //Successful wakeup
+            pthread_mutex_unlock(&clientLock);
+            return;
+        } else {
+            //Spurious wakeup, wait again
+            goto wait;
+        }
+    } else {
+        if (n == ETIMEDOUT) {
+            //Timeout occurred, resend packet
+            pthread_mutex_unlock(&clientLock);
+            ++retryCount;
+            if (retryCount >= MAX_RETRIES) {
+                fprintf(stderr, "Connection timed out\n");
+                isRunning = false;
+                return;
+            }
+            goto start;
+        } else {
+            errno = n;
+            pthread_mutex_unlock(&clientLock);
+            fatal_error("pthread_cond_wait");
+        }
+    }
+    __builtin_unreachable();
 }
