@@ -64,13 +64,16 @@ pthread_mutex_t clientLock;
 pthread_cond_t cv;
 bool ackReceived = false;
 
-#define TIMEOUT_NS 100ul * (1000ul * 1000ul)
-#define NANO_IN_SEC 1000ul * 1000ul * 1000ul
-#define MAX_RETRIES 3
+#define MICRO_IN_SEC 1000ul * 1000ul
+#define NANO_IN_SEC 1000ul * MICRO_IN_SEC
+
+#define TIMEOUT_NS 300ul * MICRO_IN_SEC
+#define MAX_RETRIES 10
 
 struct timespec timeToWait;
 
 void network_init(void) {
+    _Static_assert(TIMEOUT_NS < NANO_IN_SEC, "Packet timeout value must be less than the number of nanoseconds in one second");
     initCrypto();
     LongTermSigningKey = generateECKey();
     clientList = checked_calloc(10, sizeof(struct client));
