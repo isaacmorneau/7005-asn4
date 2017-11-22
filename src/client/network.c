@@ -65,6 +65,7 @@ pthread_cond_t cv;
 bool ackReceived = false;
 
 #define TIMEOUT_NS 100ul * (1000ul * 1000ul)
+#define NANO_IN_SEC 1000ul * 1000ul * 1000ul
 #define MAX_RETRIES 3
 
 struct timespec timeToWait;
@@ -694,7 +695,13 @@ start:
 wait:
 
     clock_gettime(CLOCK_REALTIME, &timeToWait);
-    timeToWait.tv_nsec += TIMEOUT_NS;
+
+    if (NANO_IN_SEC - timeToWait.tv_nsec < TIMEOUT_NS) {
+        timeToWait.tv_sec += 1;
+        timeToWait.tv_nsec = NANO_IN_SEC - timeToWait.tv_nsec + TIMEOUT_NS;
+    } else {
+        timeToWait.tv_nsec += TIMEOUT_NS;
+    }
 
     n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
     if (n == 0) {
