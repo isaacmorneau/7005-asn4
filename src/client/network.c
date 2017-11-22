@@ -148,12 +148,14 @@ unsigned char *exchangeKeys(const int * const sock) {
         debug_print_buffer("Actual server sign key: ", signPubKey, pubKeyLen);
         rawSend(*sock, tmpSigningKeyBuffer, packetLength);
 
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
+        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
 
         unsigned char *mesgBuffer = checked_malloc(packetLength);
         memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
-        memcpy(mesgBuffer + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
+        fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
+        memcpy(mesgBuffer + sizeof(uint16_t), &clientEntry->seq, sizeof(uint16_t));
+        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
+        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
 
         debug_print_buffer("Sent Server ephemeral key: ", mesgBuffer, packetLength);
 
@@ -194,14 +196,16 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
 
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
+        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
         mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         if (!receiveAndVerifyKey(sock, mesgBuffer, packetLength, ephemeralPubKeyLen, hmaclen)) {
             fatal_error("HMAC verification");
         }
 
-        EVP_PKEY *clientPubKey = setPublicKey(mesgBuffer + sizeof(uint16_t), ephemeralPubKeyLen);
+        EVP_PKEY *clientPubKey = setPublicKey(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKeyLen);
+
+        clientEntry->ack = *((uint16_t *)(mesgBuffer + sizeof(uint16_t)));
 
         sharedSecret = getSharedSecret(ephemeralKey, clientPubKey);
 
@@ -243,7 +247,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
 
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
+        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
 
         mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
@@ -251,7 +255,9 @@ unsigned char *exchangeKeys(const int * const sock) {
             fatal_error("HMAC verification");
         }
 
-        EVP_PKEY *serverPubKey = setPublicKey(mesgBuffer + sizeof(uint16_t), ephemeralPubKeyLen);
+        EVP_PKEY *serverPubKey = setPublicKey(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKeyLen);
+
+        clientEntry->ack = *((uint16_t *)(mesgBuffer + sizeof(uint16_t)));
 
         packetLength = pubKeyLen + sizeof(uint16_t);
 
@@ -263,11 +269,13 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         rawSend(*sock, tmpSigningKeyBuffer, packetLength);
 
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t);
+        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
 
         memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
-        memcpy(mesgBuffer + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
+        fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
+        memcpy(mesgBuffer + sizeof(uint16_t), &clientEntry->seq, sizeof(uint16_t));
+        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
+        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
 
         debug_print_buffer("Sent client ephemeral key: ", mesgBuffer, packetLength);
 
@@ -290,7 +298,7 @@ unsigned char *exchangeKeys(const int * const sock) {
 }
 
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen) {
-    assert(bufSize >= keyLen + hmacLen + sizeof(uint16_t));
+    assert(bufSize >= keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t));
 
     int epollfd = createEpollFd();
 
@@ -324,11 +332,11 @@ bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const si
 
     assert(n >= keyLen);
 
-    EVP_PKEY *serverPubKey = setPublicKey(buffer + sizeof(uint16_t), keyLen);
+    EVP_PKEY *serverPubKey = setPublicKey(buffer + sizeof(uint16_t) + sizeof(uint16_t), keyLen);
 
     struct client *entry = container_entry(sock, struct client, socket);
 
-    bool rtn = verifyHMAC_PKEY(buffer + sizeof(uint16_t), keyLen, buffer + sizeof(uint16_t) + keyLen, hmacLen, entry->signingKey);
+    bool rtn = verifyHMAC_PKEY(buffer + sizeof(uint16_t) + sizeof(uint16_t), keyLen, buffer + sizeof(uint16_t) + sizeof(uint16_t) + keyLen, hmacLen, entry->signingKey);
 
     EVP_PKEY_free(serverPubKey);
     return rtn;
