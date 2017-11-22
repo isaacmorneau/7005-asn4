@@ -479,9 +479,6 @@ void *eventLoop(void *epollfd) {
                                 if (len == tmpSize) {
                                     debug_print_buffer("Raw Received packet: ", buffer, sizeToRead);
                                     decryptReceivedUserData(buffer, sizeToRead, eventList[i].data.ptr);
-                                    if (isServer) {
-                                        send(sock, buffer, sizeToRead, 0);
-                                    }
                                     break;
                                 }
                                 //Len must be less than tmpSize
@@ -561,7 +558,7 @@ void initClientStruct(struct client *newClient, int sock) {
     newClient->windowSize = 0xff;
 }
 
-void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, const struct client *dest) {
+void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
     //Mesg is the plaintext, and does not include the sequence or ack, etc numbers
     assert(mesgLen <= MAX_USER_BUFFER);
     /*
@@ -623,10 +620,12 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, cons
     //Write the packet to the socket
     rawSend(dest->socket, out, packetLength);
 
+    ++dest->seq;
+
     free(out);
 }
 
-void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, const struct client *src) {
+void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *src) {
     assert(mesgLen > IV_SIZE + HASH_SIZE);
 
     debug_print_buffer("Received hmac: ", mesg + mesgLen - HASH_SIZE, HASH_SIZE);
@@ -635,6 +634,12 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, co
     if (!validPacket) {
         fprintf(stderr, "Packet HMAC failed to verify, dropping...\n");
         return;
+    }
+
+    ++src->ack;
+
+    if (isServer) {
+        rawSend(src->socket, mesg, mesgLen);
     }
 
     unsigned char *plain = checked_malloc(mesgLen);
