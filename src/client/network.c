@@ -387,7 +387,7 @@ void startClient(const char *ip, const char *portString, int inputFD) {
             break;
         }
         printf("Read %d\n", n);
-        sendEncryptedUserData((unsigned char *) buffer, n, serverEntry);
+        sendEncryptedUserData((unsigned char *) buffer, n, serverEntry, false);
     }
 
 clientCleanup:
@@ -558,7 +558,7 @@ void initClientStruct(struct client *newClient, int sock) {
     newClient->windowSize = 0xff;
 }
 
-void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
+void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest, const bool isAck) {
     //Mesg is the plaintext, and does not include the sequence or ack, etc numbers
     assert(mesgLen <= MAX_USER_BUFFER);
     /*
@@ -578,7 +578,7 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
     unsigned char wrappedMesg[mesgLen + HEADER_SIZE - sizeof(uint16_t)];
 
     //Fill wrappedMesg with appropriate values
-    memset(wrappedMesg, NONE, sizeof(unsigned char));
+    memset(wrappedMesg, (isAck) ? ACK : NONE, sizeof(unsigned char));
     memcpy(wrappedMesg + sizeof(unsigned char), &dest->seq, sizeof(uint16_t));
     memcpy(wrappedMesg + sizeof(unsigned char) + sizeof(uint16_t), &dest->ack, sizeof(uint16_t));
     memcpy(wrappedMesg + sizeof(unsigned char) + (sizeof(uint16_t) * 2), &dest->windowSize, sizeof(uint16_t));
@@ -636,10 +636,9 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
         return;
     }
 
-    ++src->ack;
-
     if (isServer) {
-        rawSend(src->socket, mesg, mesgLen);
+        sendEncryptedUserData((const unsigned char *) "", 0, src, true);
+        ++src->ack;
     }
 
     unsigned char *plain = checked_malloc(mesgLen);

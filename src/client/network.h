@@ -42,7 +42,7 @@
 
 typedef enum {
     NONE = 0x00,
-    SYN = 0x0f,
+    ACK = 0x0f,
     FIN = 0xf0
 } PacketType;
 
@@ -83,7 +83,7 @@ void startServer(void);
 size_t addClient(int sock);
 void initClientStruct(struct client *newClient, int sock);
 void *eventLoop(void *epollfd);
-void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest);
+void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest, const bool isAck);
 void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *src);
 
 #endif
