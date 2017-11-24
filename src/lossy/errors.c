@@ -1,59 +1,75 @@
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
+#include <assert.h>
 
 #include "errors.h"
 
-void errors_init(errors * er, const char * rate) {
-    double loss = atof(rate);
-    char * index = strchr(rate, '.');
-
-    long segment = 100;
-    long whole_loss;
-
-    if (index) {//fractional loss
-        int max_loops = strlen(index) - 1;
-
-        double frac = loss - (long)loss;
-        int multiplyer = 1;
-        while (max_loops-- && frac) {
-            frac *= 10;
-            frac = frac - (long)frac;
-            multiplyer *= 10;
+int ipow(int base, int exp) {
+    assert(exp >= 0);
+    int res = 1;
+    while (exp) {
+        if (exp & 1) {
+            res *= base;
         }
+        exp >>= 1;
+        base *= base;
+    }
+    return res;
+}
 
-        segment *= multiplyer;
-        whole_loss = loss * multiplyer;
-    } else {//whole number loss
-        whole_loss = (long)loss;
-        if (whole_loss > 100) {
-            fprintf(stderr, "you cannot lose more than all packets don't be ridiculous\n");
-            abort();
-        } else if (whole_loss < 0) {
-            fprintf(stderr, "you cannot lose less than no packets don't be ridiculous\n");
-            abort();
-        }
+void dec_to_frac(const char * dec_str, int * restrict numerator, int * restrict denominator) {
+    double dec = atof(dec_str);
+    assert(dec > 0);
+    char * dot = strchr(dec_str, '.');
+    int denom = 100;//its in percent start at 100
+    if (dot) { //theres a decimal part
+        int multiplyer = ipow(10, strlen(dec_str) - strcspn(dec_str, ".") - ((int)(dot - dec_str)));
+        denom *= multiplyer;
+        dec *= multiplyer;
+    }
+    for(;denom < dec; denom*=10);//waste not want not
+    for(*numerator = (int)dec, *denominator = denom; !(*numerator % 10 | *denominator % 10); *numerator /= 10, *denominator /= 10);
+}
+
+void errors_init(errors * restrict er, const char * rate) {
+    double dec = atof(rate);
+    if (dec > 100.0) {
+        fprintf(stderr, "you cannot lose more than all packets don't be ridiculous\n");
+        abort();
+    } else if (dec < 0.0) {
+        fprintf(stderr, "you cannot lose less than no packets don't be ridiculous\n");
+        abort();
     }
     er->index = 0;
-    er->loop = (int)segment;
-    er->rate = (int)whole_loss;
+    dec_to_frac(rate, &er->rate, &er->loop);
     //should prolly check if this fails to allocate but really we should never be that low on memory
-    er->drops = calloc((int)segment, sizeof(int));
-    printf("loss: %ld segment: %ld\n", whole_loss, segment);
+    er->drops = calloc(er->loop, sizeof(int));
+    printf("loss: %d segment: %d\n", er->rate, er->loop);
     errors_regen(er);
 }
-void errors_close(errors * er) {
+
+void errors_close(errors * restrict er) {
     free(er->drops);
 }
-void errors_regen(errors * er) {
+
+void errors_regen(errors * restrict er) {
     memset(er->drops, 0, er->loop);
+    int pos;
     for (int i = er->rate; i--;) {
-        er->drops[(int)(rand() % er->loop)] = 1;
+randexists:
+        pos = rand() % er->loop;
+        if (er->drops[pos]) {
+            goto randexists;
+        }
+        er->drops[pos] = 1;
     }
 }
-int errors_checkdrop(errors * er) {
-    if (er->loop == -1 ) {
+
+
+int errors_checkdrop(errors * restrict er) {
+    if (er->loop == -1) {
         return 0;
     }
     int ret = 0;
@@ -66,4 +82,12 @@ int errors_checkdrop(errors * er) {
         er->index = 0;
     }
     return ret;
+}
+
+void damage_packet(raw_packet * restrict pkt, int rate, int sample) {
+    for(int i = 0; i < (pkt->length-2) * 8; i += sample) {
+        for(int j = rate;j--;) {
+            pkt->data[rand() % (pkt->length - 2)] ^= rand() % (sizeof(unsigned char) * 8);
+        }
+    }
 }

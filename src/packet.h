@@ -13,11 +13,4 @@ typedef struct raw_packet {
     unsigned char data[PACKET_MAX_DATA];
 } raw_packet;
 
-typedef struct parsed_packet {
-    unsigned short * length; //first two bytes
-    unsigned char * cipher_text;
-    unsigned char * iv;
-    unsigned char * hmac;
-} parsed_packet;
-
 #endif

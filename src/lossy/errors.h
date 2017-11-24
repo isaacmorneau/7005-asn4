@@ -1,6 +1,8 @@
 #ifndef ERRORS_H
 #define ERRORS_H
 
+#include "../packet.h"
+
 typedef struct errors {
     int index;//where we are
     int loop;//when to next regen drops
@@ -14,5 +16,8 @@ void errors_close(errors * er);
 void errors_regen(errors * er);
 //see if we should drop
 int errors_checkdrop(errors * er);
+
+//corrupt it
+void damage_packet(raw_packet * pkt, int rate, int sample);
 
 #endif

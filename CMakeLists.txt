@@ -53,5 +53,5 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 add_executable(7005-asn4-lossy ${LOSSY})
 add_executable(7005-asn4 ${MAIN})
 
-target_link_libraries(7005-asn4-lossy rt Threads::Threads)
+target_link_libraries(7005-asn4-lossy rt Threads::Threads m)
 target_link_libraries(7005-asn4 rt Threads::Threads OpenSSL::Crypto)

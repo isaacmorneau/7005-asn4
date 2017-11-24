@@ -209,6 +209,10 @@ int main(int argc, char ** argv) {
                             packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                             printf("packet sent\n");
                         } else {
+                            //TODO test the damage of the packet damage
+                            //damage_packet(&pkt, 5, 100);
+                            //packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
+                            //printf("packet corrupted\n");
                             printf("packet dropped\n");
                         }
                     }
