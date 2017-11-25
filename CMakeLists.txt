@@ -25,6 +25,7 @@ include_directories(src)
 
 file(GLOB LOSSY
     "src/lossy/*.c"
+    "src/lossy/*.cpp"
     "src/lossy/*.h"
     )
 set(LOSSY ${LOSSY} "src/packet.h")

@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "errors.h"
+#include "cpp_wrapper.h"
 
 int ipow(int base, int exp) {
     assert(exp >= 0);
@@ -56,15 +57,7 @@ void errors_close(errors * restrict er) {
 
 void errors_regen(errors * restrict er) {
     memset(er->drops, 0, er->loop);
-    int pos;
-    for (int i = er->rate; i--;) {
-randexists:
-        pos = rand() % er->loop;
-        if (er->drops[pos]) {
-            goto randexists;
-        }
-        er->drops[pos] = 1;
-    }
+    uniform_set(er->drops, er->rate, er->loop);
 }
 
 
