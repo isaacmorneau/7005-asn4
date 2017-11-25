@@ -69,7 +69,7 @@ int errors_checkdrop(errors * restrict er) {
     if (er->drops[er->index]) {
         ret = 1;
     }
-    ++(er->index);
+    ++er->index;
     if (er->index >= er->loop) {
         errors_regen(er);
         er->index = 0;

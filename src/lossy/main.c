@@ -29,8 +29,8 @@ int main(int argc, char ** argv) {
     char * port= 0;
     char * address = 0;
     char * drop = 0;
-    errors er;
     int handshake_delay = 4;
+    errors er;
     er.loop = -1;
     //handle the arguments in its own scope
     {
@@ -207,13 +207,13 @@ int main(int argc, char ** argv) {
                     if (packet_read((epoll_data *)events[i].data.ptr, &pkt) == 1) {
                         if (handshake_delay-- > 0 || !errors_checkdrop(&er)) {
                             packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
-                            printf("packet sent\n");
+                            printf("packet sent %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
                         } else {
                             //TODO test the damage of the packet damage
                             //damage_packet(&pkt, 5, 100);
                             //packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                             //printf("packet corrupted\n");
-                            printf("packet dropped\n");
+                            printf("packet dropped %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
                         }
                     }
                 }
