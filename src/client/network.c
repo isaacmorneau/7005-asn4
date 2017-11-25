@@ -101,6 +101,7 @@ void network_cleanup(void) {
  * This is to be replaced by the application's desired behaviour
  */
 void process_packet(const unsigned char * const buffer, const size_t bufsize, struct client *src) {
+    //Used to remove warnings about unused parameters
     (void)(buffer);
     (void)(bufsize);
 
@@ -108,7 +109,6 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         pthread_mutex_lock(&clientLock);
 
         uint16_t ackVal;
-
         //Grab ack value from buffer
         memcpy(&ackVal, buffer + 3, sizeof(uint16_t));
 
@@ -119,7 +119,6 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         } else {
             //Received ack for older packet, or weird error, so ignore
         }
-
         pthread_mutex_unlock(&clientLock);
     }
 
@@ -172,67 +171,12 @@ unsigned char *exchangeKeys(const int * const sock) {
     struct client *clientEntry = container_entry(sock, struct client, socket);
 
     if (isServer) {
-        uint16_t packetLength = pubKeyLen + sizeof(uint16_t);
-        unsigned char tmpSigningKeyBuffer[packetLength];
+        sendSigningKey(*sock, signPubKey, pubKeyLen);
+        sendEphemeralKey(*sock, clientEntry, ephemeralPubKey, ephemeralPubKeyLen, hmac, hmaclen);
+        readSigningKey(*sock, clientEntry, pubKeyLen);
 
-        memcpy(tmpSigningKeyBuffer, &packetLength, sizeof(uint16_t));
-        memcpy(tmpSigningKeyBuffer + sizeof(uint16_t), signPubKey, pubKeyLen);
-
-        debug_print_buffer("Sent Server sign key: ", tmpSigningKeyBuffer, packetLength);
-
-        debug_print_buffer("Actual server sign key: ", signPubKey, pubKeyLen);
-        rawSend(*sock, tmpSigningKeyBuffer, packetLength);
-
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
-
+        uint16_t packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
         unsigned char *mesgBuffer = checked_malloc(packetLength);
-        memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
-        fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t), &clientEntry->seq, sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
-        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
-
-        debug_print_buffer("Sent Server ephemeral key: ", mesgBuffer, packetLength);
-
-        rawSend(*sock, mesgBuffer, packetLength);
-
-        packetLength = pubKeyLen + sizeof(uint16_t);
-
-        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
-
-        int epollfd = createEpollFd();
-
-        struct epoll_event ev;
-        ev.data.fd = *sock;
-        ev.events = EPOLLIN | EPOLLET;
-
-        addEpollSocket(epollfd, *sock, &ev);
-
-        struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
-
-        int nevents = waitForEpollEvent(epollfd, eventList);
-        size_t n = 0;
-        for (int i = 0; i < nevents; ++i) {
-            if (eventList[i].events & EPOLLERR) {
-                fatal_error("Key exchange socket error");
-            } else if (eventList[i].events & EPOLLHUP) {
-                fatal_error("Exchange socket closed during handshake");
-            } else if (eventList[i].events & EPOLLIN) {
-                n = readNBytes(*sock, mesgBuffer, packetLength);
-            } else {
-                fatal_error("Unknown epoll error");
-            }
-        }
-
-        free(eventList);
-        close(epollfd);
-
-        debug_print_buffer("Received Client signing key: ", mesgBuffer, packetLength);
-
-        clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
-
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
-        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         if (!receiveAndVerifyKey(sock, mesgBuffer, packetLength, ephemeralPubKeyLen, hmaclen)) {
             fatal_error("HMAC verification");
@@ -247,44 +191,11 @@ unsigned char *exchangeKeys(const int * const sock) {
         EVP_PKEY_free(clientPubKey);
         free(mesgBuffer);
     } else {
-        uint16_t packetLength = pubKeyLen + sizeof(uint16_t);
+        readSigningKey(*sock, clientEntry, pubKeyLen);
+
+        uint16_t packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
+
         unsigned char *mesgBuffer = checked_malloc(packetLength);
-
-        int epollfd = createEpollFd();
-
-        struct epoll_event ev;
-        ev.data.fd = *sock;
-        ev.events = EPOLLIN | EPOLLET;
-
-        addEpollSocket(epollfd, *sock, &ev);
-
-        struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
-
-        int nevents = waitForEpollEvent(epollfd, eventList);
-        size_t n = 0;
-        for (int i = 0; i < nevents; ++i) {
-            if (eventList[i].events & EPOLLERR) {
-                fatal_error("Key exchange socket error");
-            } else if (eventList[i].events & EPOLLHUP) {
-                fatal_error("Exchange socket closed during handshake");
-            } else if (eventList[i].events & EPOLLIN) {
-                n = readNBytes(*sock, mesgBuffer, packetLength);
-            } else {
-                fatal_error("Unknown epoll error");
-            }
-        }
-
-        free(eventList);
-        close(epollfd);
-
-        debug_print_buffer("Received server signing key: ", mesgBuffer, packetLength);
-        debug_print_buffer("Converted pub key: ", mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
-
-        clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
-
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
-
-        mesgBuffer = checked_realloc(mesgBuffer, packetLength);
 
         if (!receiveAndVerifyKey(sock, mesgBuffer, packetLength, ephemeralPubKeyLen, hmaclen)) {
             fatal_error("HMAC verification");
@@ -294,40 +205,20 @@ unsigned char *exchangeKeys(const int * const sock) {
 
         clientEntry->ack = *((uint16_t *)(mesgBuffer + sizeof(uint16_t)));
 
-        packetLength = pubKeyLen + sizeof(uint16_t);
-
-        unsigned char tmpSigningKeyBuffer[packetLength];
-        memcpy(tmpSigningKeyBuffer, &packetLength, sizeof(uint16_t));
-        memcpy(tmpSigningKeyBuffer + sizeof(uint16_t), signPubKey, pubKeyLen);
-
-        debug_print_buffer("Sent client signing key: ", tmpSigningKeyBuffer, packetLength);
-
-        rawSend(*sock, tmpSigningKeyBuffer, packetLength);
-
-        packetLength = ephemeralPubKeyLen + hmaclen + sizeof(uint16_t) + sizeof(uint16_t);
-
-        memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
-        fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t), &clientEntry->seq, sizeof(uint16_t));
-        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), ephemeralPubKey, ephemeralPubKeyLen);
-        memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t) + ephemeralPubKeyLen, hmac, hmaclen);
-
-        debug_print_buffer("Sent client ephemeral key: ", mesgBuffer, packetLength);
-
-        rawSend(*sock, mesgBuffer, packetLength);
+        sendSigningKey(*sock, signPubKey, pubKeyLen);
+        sendEphemeralKey(*sock, clientEntry, ephemeralPubKey, ephemeralPubKeyLen, hmac, hmaclen);
 
         sharedSecret = getSharedSecret(ephemeralKey, serverPubKey);
 
         free(mesgBuffer);
         EVP_PKEY_free(serverPubKey);
     }
+    clientEntry->sharedKey = sharedSecret;
 
     OPENSSL_free(signPubKey);
     OPENSSL_free(ephemeralPubKey);
     OPENSSL_free(hmac);
     EVP_PKEY_free(ephemeralKey);
-
-    clientEntry->sharedKey = sharedSecret;
 
     return sharedSecret;
 }
@@ -335,43 +226,16 @@ unsigned char *exchangeKeys(const int * const sock) {
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen) {
     assert(bufSize >= keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t));
 
-    int epollfd = createEpollFd();
-
-    struct epoll_event ev;
-    memset(&ev, 0, sizeof(struct epoll_event));
-    ev.data.fd = *sock;
-    ev.events = EPOLLIN | EPOLLET;
-
-    addEpollSocket(epollfd, *sock, &ev);
-
-    struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
-
-    int nevents = waitForEpollEvent(epollfd, eventList);
-    size_t n = 0;
-    for (int i = 0; i < nevents; ++i) {
-        if (eventList[i].events & EPOLLERR) {
-            fatal_error("Key exchange socket error");
-        } else if (eventList[i].events & EPOLLHUP) {
-            fatal_error("Exchange socket closed during handshake");
-        } else if (eventList[i].events & EPOLLIN) {
-            n = readNBytes(*sock, buffer, bufSize);
-        } else {
-            fatal_error("Unknown epoll error");
-        }
-    }
-
-    free(eventList);
-    close(epollfd);
-
-    debug_print_buffer("Received ephemeral key: ", buffer, bufSize);
-
+    size_t n = singleEpollReadInstance(*sock, buffer, bufSize);
     assert(n >= keyLen);
 
-    EVP_PKEY *serverPubKey = setPublicKey(buffer + sizeof(uint16_t) + sizeof(uint16_t), keyLen);
+    debug_print_buffer("Received ephemeral key: ", buffer, n);
+
+    EVP_PKEY *serverPubKey = setPublicKey(buffer + (sizeof(uint16_t) * 2), keyLen);
 
     struct client *entry = container_entry(sock, struct client, socket);
 
-    bool rtn = verifyHMAC_PKEY(buffer + sizeof(uint16_t) + sizeof(uint16_t), keyLen, buffer + sizeof(uint16_t) + sizeof(uint16_t) + keyLen, hmacLen, entry->signingKey);
+    bool rtn = verifyHMAC_PKEY(buffer + (sizeof(uint16_t) * 2), keyLen, buffer + (sizeof(uint16_t) * 2) + keyLen, hmacLen, entry->signingKey);
 
     EVP_PKEY_free(serverPubKey);
     return rtn;
@@ -427,7 +291,6 @@ void startClient(const char *ip, const char *portString, int inputFD) {
     }
 
 clientCleanup:
-    shutdown(serverSock, SHUT_WR);
     close(epollfd);
     close(inputFD);
     network_cleanup();
@@ -461,97 +324,16 @@ void *eventLoop(void *epollfd) {
         int n = waitForEpollEvent(efd, eventList);
         //n can't be -1 because the handling for that is done in waitForEpollEvent
         for (int i = 0; i < n; ++i) {
-            if (eventList[i].events & EPOLLERR) {
-                if (eventList[i].data.ptr) {
-                    int sock = ((struct client *) eventList[i].data.ptr)->socket;
-                    fprintf(stderr, "Socket error on socket %d\n", sock);
-                    close(sock);
-                } else {
-                    fprintf(stderr, "Socket error on socket %d\n", listenSock);
-                    close(listenSock);
-                }
-            } else if (eventList[i].events & EPOLLHUP) {
-                if (eventList[i].data.ptr) {
-                    int sock = ((struct client *) eventList[i].data.ptr)->socket;
-                    fprintf(stderr, "Socket %d closed\n", sock);
-                    close(sock);
-                } else {
-                    fprintf(stderr, "Socket %d closed\n", listenSock);
-                    close(listenSock);
-                }
+            if (eventList[i].events & EPOLLERR || eventList[i].events & EPOLLHUP) {
+                int sock = (eventList[i].data.ptr) ? ((struct client *) eventList[i].data.ptr)->socket : listenSock;
+                handleSocketError(sock);
             } else if (eventList[i].events & EPOLLIN) {
                 if (eventList[i].data.ptr) {
                     //Regular read connection
-                    int sock = ((struct client *) eventList[i].data.ptr)->socket;
-
-                    unsigned char *buffer = malloc(MAX_PACKET_SIZE);
-                    for (;;) {
-                        uint16_t sizeToRead = 0;
-
-                        int n = readNBytes(sock, (unsigned char *) &sizeToRead, sizeof(uint16_t));
-                        if (n == 0) {
-                            //Client has left us
-                            break;
-                        }
-                        assert(n == 2);
-
-                        assert(sizeToRead < MAX_PACKET_SIZE + sizeof(uint16_t));
-                        assert(sizeToRead != 0);
-
-                        memcpy(buffer, &sizeToRead, sizeof(uint16_t));
-
-                        printf("Packet size to read: %d\n", sizeToRead);
-
-                        {
-                            unsigned char *tmpBuf = buffer + sizeof(uint16_t);
-                            uint16_t tmpSize = sizeToRead - sizeof(uint16_t);
-
-                            int len;
-                            for (;;) {
-                                len = readNBytes(sock, tmpBuf, tmpSize);
-
-                                assert(len <= tmpSize);
-
-                                if (len == tmpSize) {
-                                    debug_print_buffer("Raw Received packet: ", buffer, sizeToRead);
-                                    decryptReceivedUserData(buffer, sizeToRead, eventList[i].data.ptr);
-                                    break;
-                                }
-                                //Len must be less than tmpSize
-                                if (len < tmpSize) {
-                                    tmpBuf += len;
-                                    tmpSize -= len;
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                    free(buffer);
+                    handleIncomingPacket(eventList[i].data.ptr);
                 } else {
                     //Null data pointer means listen socket has incoming connection
-                    for(;;) {
-                        int sock = accept(listenSock, NULL, NULL);
-                        if (sock == -1) {
-                            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                                //No incoming connections, ignore the error
-                                break;
-                            }
-                            fatal_error("accept");
-                        }
-
-                        setNonBlocking(sock);
-
-                        size_t newClientIndex = addClient(sock);
-
-                        unsigned char *secretKey = exchangeKeys(&clientList[newClientIndex].socket);
-                        debug_print_buffer("Shared secret: ", secretKey, HASH_SIZE);
-
-                        struct epoll_event ev;
-                        ev.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-                        ev.data.ptr = &clientList[newClientIndex];
-
-                        addEpollSocket(efd, sock, &ev);
-                    }
+                    handleIncomingConnection(efd);
                 }
             }
         }
@@ -606,9 +388,6 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
      * sizeof calls are related to header specific lengths
      */
     unsigned char *out = checked_malloc(HEADER_SIZE + mesgLen + BLOCK_SIZE + IV_SIZE + HASH_SIZE);
-
-    //Temp memset used for debugging primarily
-    memset(out, 0, mesgLen + BLOCK_SIZE + IV_SIZE + HASH_SIZE);
 
     //Buffer to hold mesg plus mesg header, not including packet length
     unsigned char wrappedMesg[mesgLen + HEADER_SIZE - sizeof(uint16_t)];
@@ -670,13 +449,13 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
         return;
     }
 
+    //Ack the validated packet
     if (isServer) {
         sendEncryptedUserData((const unsigned char *) "", 0, src, true);
         ++src->ack;
     }
 
     unsigned char *plain = checked_malloc(mesgLen);
-
     size_t plainLen = decrypt(mesg + sizeof(uint16_t), mesgLen - HASH_SIZE - IV_SIZE - sizeof(uint16_t), src->sharedKey, mesg + mesgLen - HASH_SIZE - IV_SIZE, plain);
 
     process_packet(plain, plainLen, src);
@@ -734,4 +513,127 @@ wait:
         }
     }
     __builtin_unreachable();
+}
+
+void handleIncomingConnection(const int efd) {
+    for(;;) {
+        int sock = accept(listenSock, NULL, NULL);
+        if (sock == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                //No incoming connections, ignore the error
+                break;
+            }
+            fatal_error("accept");
+        }
+
+        setNonBlocking(sock);
+
+        size_t newClientIndex = addClient(sock);
+
+        unsigned char *secretKey = exchangeKeys(&clientList[newClientIndex].socket);
+        debug_print_buffer("Shared secret: ", secretKey, HASH_SIZE);
+
+        struct epoll_event ev;
+        ev.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+        ev.data.ptr = &clientList[newClientIndex];
+
+        addEpollSocket(efd, sock, &ev);
+    }
+}
+
+void handleSocketError(const int sock) {
+    fprintf(stderr, "Socket error on socket %d\n", sock);
+    close(sock);
+}
+
+uint16_t readPacketLength(const int sock) {
+    uint16_t sizeToRead = 0;
+
+    int n = readNBytes(sock, (unsigned char *) &sizeToRead, sizeof(uint16_t));
+    if (n == 0) {
+        //Client has left us
+        return 0;
+    }
+    assert(n == 2);
+
+    assert(sizeToRead < MAX_PACKET_SIZE + sizeof(uint16_t));
+    assert(sizeToRead != 0);
+
+    return sizeToRead;
+}
+
+void handleIncomingPacket(struct client *src) {
+    const int sock = src->socket;
+    unsigned char *buffer = checked_malloc(MAX_PACKET_SIZE);
+    for (;;) {
+        //uint16_t sizeToRead = 0;
+        uint16_t sizeToRead = readPacketLength(sock);
+        if (sizeToRead == 0) {
+            //Client has left us
+            break;
+        }
+        memcpy(buffer, &sizeToRead, sizeof(uint16_t));
+        printf("Packet size to read: %d\n", sizeToRead);
+        {
+            unsigned char *tmpBuf = buffer + sizeof(uint16_t);
+            uint16_t tmpSize = sizeToRead - sizeof(uint16_t);
+
+            int len;
+            for (;;) {
+                len = readNBytes(sock, tmpBuf, tmpSize);
+                assert(len <= tmpSize);
+                if (len == tmpSize) {
+                    debug_print_buffer("Raw Received packet: ", buffer, sizeToRead);
+                    decryptReceivedUserData(buffer, sizeToRead, src);
+                    break;
+                }
+                //Len must be less than tmpSize
+                if (len < tmpSize) {
+                    tmpBuf += len;
+                    tmpSize -= len;
+                    continue;
+                }
+            }
+        }
+    }
+    free(buffer);
+}
+
+void sendSigningKey(const int sock, const unsigned char *key, const size_t keyLen) {
+    uint16_t packetLength = keyLen + sizeof(uint16_t);
+    unsigned char tmpSigningKeyBuffer[packetLength];
+
+    memcpy(tmpSigningKeyBuffer, &packetLength, sizeof(uint16_t));
+    memcpy(tmpSigningKeyBuffer + sizeof(uint16_t), key, keyLen);
+
+    debug_print_buffer("Sent signing key: ", tmpSigningKeyBuffer, packetLength);
+
+    debug_print_buffer("Actual signing key: ", key, keyLen);
+    rawSend(sock, tmpSigningKeyBuffer, packetLength);
+}
+
+void sendEphemeralKey(const int sock, struct client *clientEntry, const unsigned char *key, const size_t keyLen, const unsigned char *hmac, const size_t hmacLen) {
+    uint16_t packetLength = keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t);
+
+    //unsigned char *mesgBuffer = checked_malloc(packetLength);
+    unsigned char mesgBuffer[packetLength];
+    memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
+    fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
+    memcpy(mesgBuffer + sizeof(uint16_t), &clientEntry->seq, sizeof(uint16_t));
+    memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t), key, keyLen);
+    memcpy(mesgBuffer + sizeof(uint16_t) + sizeof(uint16_t) + keyLen, hmac, hmacLen);
+
+    debug_print_buffer("Sent ephemeral key: ", mesgBuffer, packetLength);
+
+    rawSend(sock, mesgBuffer, packetLength);
+}
+
+void readSigningKey(const int sock, struct client *clientEntry, const size_t keyLen) {
+    const uint16_t packetLength = keyLen + sizeof(uint16_t);
+    unsigned char mesgBuffer[packetLength];
+    size_t n = singleEpollReadInstance(sock, mesgBuffer, packetLength);
+
+    debug_print_buffer("Received signing key: ", mesgBuffer, packetLength);
+
+    clientEntry->signingKey = setPublicKey(mesgBuffer + sizeof(uint16_t), n - sizeof(uint16_t));
 }

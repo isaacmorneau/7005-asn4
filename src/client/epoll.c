@@ -37,8 +37,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "epoll.h"
+#include "main.h"
 #include "macro.h"
+#include "socket.h"
 
 int createEpollFd(void) {
     int efd;
@@ -66,3 +69,33 @@ int waitForEpollEvent(const int epollfd, struct epoll_event *events) {
     return nevents;
 }
 
+size_t singleEpollReadInstance(const int sock, unsigned char *buffer, const size_t bufSize) {
+    int epollfd = createEpollFd();
+
+    struct epoll_event ev;
+    ev.data.fd = sock;
+    ev.events = EPOLLIN | EPOLLET;
+
+    addEpollSocket(epollfd, sock, &ev);
+
+    struct epoll_event *eventList = checked_malloc(sizeof(struct epoll_event) * MAX_EPOLL_EVENTS);
+
+    int nevents = waitForEpollEvent(epollfd, eventList);
+    size_t n = 0;
+    for (int i = 0; i < nevents; ++i) {
+        if (eventList[i].events & EPOLLERR) {
+            fatal_error("One off epoll error");
+        } else if (eventList[i].events & EPOLLHUP) {
+            fatal_error("One off epoll socket closed");
+        } else if (eventList[i].events & EPOLLIN) {
+            n = readNBytes(sock, buffer, bufSize);
+        } else {
+            fatal_error("Unknown epoll error");
+        }
+    }
+
+    free(eventList);
+    close(epollfd);
+
+    return n;
+}
