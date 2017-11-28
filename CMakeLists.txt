@@ -22,6 +22,8 @@ add_definitions(-D_POSIX_C_SOURCE=200809L)
 add_definitions(-D_DEFAULT_SOURCE)
 
 include_directories(src)
+include_directories(${CMAKE_SOURCE_DIR})
+link_directories(${CMAKE_SOURCE_DIR})
 
 file(GLOB LOSSY
     "src/lossy/*.c"
