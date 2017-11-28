@@ -112,12 +112,16 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         //Grab ack value from buffer
         memcpy(&ackVal, buffer + 3, sizeof(uint16_t));
 
+        debug_print("\nReceived ack packet with ack value %d\n", ackVal);
+
         if (ackVal == src->seq) {
             //Received ack for a packet
+            debug_print("\nAck value is good, signalling cv\n\n");
             ackReceived = true;
             pthread_cond_broadcast(&cv);
         } else {
             //Received ack for older packet, or weird error, so ignore
+            debug_print("\nAck value was not the one we were looking for, ignoring...\n\n");
         }
         pthread_mutex_unlock(&clientLock);
     }
@@ -463,6 +467,7 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
 
     //Ack the validated packet
     if (isServer) {
+        debug_print("\nSending ack\n\n");
         sendEncryptedUserData((const unsigned char *) "", 0, src, true);
         ++src->ack;
     }
@@ -509,12 +514,20 @@ start:
 wait:
 
     clock_gettime(CLOCK_REALTIME, &timeToWait);
+
+    debug_print("\n\nOriginal clock struct:\nSeconds: %lu\nNano: %lu\n", timeToWait.tv_sec, timeToWait.tv_nsec);
+
     timespec_add_ns(&timeToWait, TIMEOUT_NS);
+
+    debug_print("\nModified clock struct:\nSeconds: %lu\nNano: %lu\n", timeToWait.tv_sec, timeToWait.tv_nsec);
+
+    debug_print("\nTimeout delay: %lu\n", TIMEOUT_NS);
 
     n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
     if (n == 0) {
         if (ackReceived) {
             //Successful wakeup
+            debug_print("\nWoke up to an ack, all is good\n");
             pthread_mutex_unlock(&clientLock);
             return;
         } else {
@@ -524,6 +537,11 @@ wait:
     } else {
         if (n == ETIMEDOUT) {
             //Timeout occurred, resend packet
+            debug_print("\nTimeout occurred, retrying...\n\n");
+
+            clock_gettime(CLOCK_REALTIME, &timeToWait);
+            debug_print("\nCurrent time at timeout struct:\nSeconds: %lu\nNano: %lu\n", timeToWait.tv_sec, timeToWait.tv_nsec);
+
             pthread_mutex_unlock(&clientLock);
             ++retryCount;
             if (retryCount >= MAX_RETRIES) {
