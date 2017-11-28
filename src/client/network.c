@@ -67,7 +67,7 @@ bool ackReceived = false;
 #define MICRO_IN_SEC 1000ul * 1000ul
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
-#define TIMEOUT_NS 300ul * MICRO_IN_SEC
+#define TIMEOUT_NS 700ul * MICRO_IN_SEC
 #define MAX_RETRIES 10
 
 struct timespec timeToWait;
@@ -463,6 +463,26 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
     free(plain);
 }
 
+
+//thanks https://eastskykang.wordpress.com/2015/03/24/138/
+static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder) {
+  uint32_t ret = 0;
+  while (dividend >= divisor) {
+    /* The following asm() prevents the compiler from
+       optimising this loop into a modulo operation.  */
+    __asm__("");
+    dividend -= divisor;
+    ret++;
+  }
+  *remainder = dividend;
+  return ret;
+}
+
+static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
+  a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
+  a->tv_nsec = ns;
+}
+
 void sendReliablePacket(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
     int retryCount = 0;
 start:
@@ -477,13 +497,7 @@ start:
 wait:
 
     clock_gettime(CLOCK_REALTIME, &timeToWait);
-
-    if (NANO_IN_SEC - timeToWait.tv_nsec < TIMEOUT_NS) {
-        timeToWait.tv_sec += 1;
-        timeToWait.tv_nsec = NANO_IN_SEC - timeToWait.tv_nsec + TIMEOUT_NS;
-    } else {
-        timeToWait.tv_nsec += TIMEOUT_NS;
-    }
+    timespec_add_ns(&timeToWait, TIMEOUT_NS);
 
     n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
     if (n == 0) {
