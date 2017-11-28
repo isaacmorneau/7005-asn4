@@ -470,7 +470,7 @@ static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, u
   while (dividend >= divisor) {
     /* The following asm() prevents the compiler from
        optimising this loop into a modulo operation.  */
-    __asm__("");
+    __asm__("": "+rm"(dividend));
     dividend -= divisor;
     ret++;
   }
