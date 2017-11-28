@@ -66,6 +66,8 @@ struct client {
  */
 #define MAX_PACKET_SIZE 1074
 
+#define WINDOW_SIZE 3
+
 extern bool isServer;
 extern EVP_PKEY *LongTermSigningKey;
 extern struct client *clientList;
