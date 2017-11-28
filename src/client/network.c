@@ -279,15 +279,27 @@ void startClient(const char *ip, const char *portString, int inputFD) {
     pthread_t readThread;
     pthread_create(&readThread, NULL, eventLoop, &epollfd);
 
-    unsigned char buffer[MAX_USER_BUFFER];
+    unsigned char mesgBuffers[WINDOW_SIZE][MAX_USER_BUFFER];
+    int amountRead[WINDOW_SIZE];
+
     while(isRunning) {
-        int n = read(inputFD, buffer, MAX_USER_BUFFER);
-        if (n <= 0) {
+        for (int i = 0; i < WINDOW_SIZE; ++i) {
+            int n = read(inputFD, mesgBuffers[i], MAX_USER_BUFFER);
+            amountRead[i] = n;
+            if (n <= 0) {
+                break;
+            }
+            printf("Read %d\n", n);
+        }
+        if (amountRead[0] <= 0) {
+            //First read of the window was EOF
+            //Nothing to send
             break;
         }
-        printf("Read %d\n", n);
-        sendReliablePacket((unsigned char *) buffer, n, serverEntry);
-        ++serverEntry->seq;
+        for (int i = 0; i < WINDOW_SIZE && amountRead[i] > 0; ++i) {
+            sendReliablePacket((unsigned char *) mesgBuffers[i], amountRead[i], serverEntry);
+            ++serverEntry->seq;
+        }
     }
 
 clientCleanup:
