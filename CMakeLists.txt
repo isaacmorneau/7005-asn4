@@ -35,14 +35,6 @@ file(GLOB MAIN
     "src/client/*.h"
     )
 
-# put your files in here john
-#set(MAIN
-    #    src/main.c
-    #    src/wrapper.c
-    #    src/wrapper.h
-    #)
-
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -55,4 +47,4 @@ add_executable(7005-asn4-lossy ${LOSSY})
 add_executable(7005-asn4 ${MAIN})
 
 target_link_libraries(7005-asn4-lossy rt Threads::Threads m)
-target_link_libraries(7005-asn4 rt Threads::Threads OpenSSL::Crypto)
+target_link_libraries(7005-asn4 rt Threads::Threads dl ${CMAKE_SOURCE_DIR}/libcrypto.a)
