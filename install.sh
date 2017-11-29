@@ -4,3 +4,7 @@ cd openssl-1.1.0g
 make -j${nproc}
 make install
 cp libcrypto.a ../
+cd ..
+cmake .
+make clean
+make -j${nproc}
