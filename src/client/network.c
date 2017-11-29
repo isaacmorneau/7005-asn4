@@ -72,6 +72,10 @@ bool ackReceived = false;
 
 struct timespec timeToWait;
 
+pthread_once_t threadCreateFlag = PTHREAD_ONCE_INIT;
+
+void *waitAckReceived(void *args);
+
 void network_init(void) {
     _Static_assert(TIMEOUT_NS < NANO_IN_SEC, "Packet timeout value must be less than the number of nanoseconds in one second");
     initCrypto();
@@ -339,6 +343,7 @@ void *eventLoop(void *epollfd) {
     while (isRunning) {
         int n = waitForEpollEvent(efd, eventList);
         //n can't be -1 because the handling for that is done in waitForEpollEvent
+        assert(n != -1);
         for (int i = 0; i < n; ++i) {
             if (eventList[i].events & EPOLLERR || eventList[i].events & EPOLLHUP) {
                 int sock = (eventList[i].data.ptr) ? ((struct client *) eventList[i].data.ptr)->socket : listenSock;
@@ -454,6 +459,12 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
     free(out);
 }
 
+void createAckThread(void) {
+    pthread_t ackThread;
+    pthread_create(&ackThread, NULL, waitAckReceived, NULL);
+    pthread_detach(ackThread);
+}
+
 void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *src) {
     assert(mesgLen > IV_SIZE + HASH_SIZE);
 
@@ -467,13 +478,23 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
 
     //Ack the validated packet
     if (isServer) {
-        debug_print("\nSending ack\n\n");
-        sendEncryptedUserData((const unsigned char *) "", 0, src, true);
-        ++src->ack;
+        ackReceived = true;
+        pthread_cond_broadcast(&cv);
+
+        pthread_once(&threadCreateFlag, createAckThread);
     }
 
     unsigned char *plain = checked_malloc(mesgLen);
     size_t plainLen = decrypt(mesg + sizeof(uint16_t), mesgLen - HASH_SIZE - IV_SIZE - sizeof(uint16_t), src->sharedKey, mesg + mesgLen - HASH_SIZE - IV_SIZE, plain);
+
+    if (isServer) {
+        uint16_t seqVal;
+        memcpy(&seqVal, plain + 1, sizeof(uint16_t));
+        debug_print("\nServer received packet with sequence number %d\n", seqVal);
+        pthread_mutex_lock(&clientLock);
+        src->ack = seqVal;
+        pthread_mutex_unlock(&clientLock);
+    }
 
     process_packet(plain, plainLen, src);
 
@@ -483,22 +504,66 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
 
 //thanks https://eastskykang.wordpress.com/2015/03/24/138/
 static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder) {
-  uint32_t ret = 0;
-  while (dividend >= divisor) {
-    /* The following asm() prevents the compiler from
-       optimising this loop into a modulo operation.  */
-    __asm__("": "+rm"(dividend));
-    dividend -= divisor;
-    ret++;
-  }
-  *remainder = dividend;
-  return ret;
+    uint32_t ret = 0;
+    while (dividend >= divisor) {
+        /* The following asm() prevents the compiler from
+           optimising this loop into a modulo operation.  */
+        __asm__("": "+rm"(dividend));
+        dividend -= divisor;
+        ret++;
+    }
+    *remainder = dividend;
+    return ret;
 }
 
 static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
-  a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
-  a->tv_nsec = ns;
+    a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
+    a->tv_nsec = ns;
 }
+
+void *waitAckReceived(void *args) {
+    struct client *dest = &clientList[0];
+    for (;;) {
+start:
+        pthread_mutex_lock(&clientLock);
+        ackReceived = false;
+        pthread_mutex_unlock(&clientLock);
+
+        debug_print("\nSending Ack\n");
+        sendEncryptedUserData((const unsigned char *) "", 0, dest, true);
+
+        pthread_mutex_lock(&clientLock);
+        int n;
+wait:
+        clock_gettime(CLOCK_REALTIME, &timeToWait);
+        timespec_add_ns(&timeToWait, TIMEOUT_NS);
+
+        n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
+        if (n == 0) {
+            if (ackReceived) {
+                //Successful wakeup
+                debug_print("\nWoke up to an ack, all is good\n");
+                pthread_mutex_unlock(&clientLock);
+                goto start;
+            } else {
+                //Spurious wakeup, wait again
+                goto wait;
+            }
+        } else {
+            if (n == ETIMEDOUT) {
+                //Timeout occurred, resend packet
+                pthread_mutex_unlock(&clientLock);
+                goto start;
+            } else {
+                errno = n;
+                pthread_mutex_unlock(&clientLock);
+                fatal_error("pthread_cond_wait");
+            }
+        }
+        __builtin_unreachable();
+    }
+}
+
 
 void sendReliablePacket(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
     int retryCount = 0;
@@ -512,7 +577,6 @@ start:
     pthread_mutex_lock(&clientLock);
     int n;
 wait:
-
     clock_gettime(CLOCK_REALTIME, &timeToWait);
 
     debug_print("\n\nOriginal clock struct:\nSeconds: %lu\nNano: %lu\n", timeToWait.tv_sec, timeToWait.tv_nsec);
@@ -610,7 +674,6 @@ void handleIncomingPacket(struct client *src) {
     const int sock = src->socket;
     unsigned char *buffer = checked_malloc(MAX_PACKET_SIZE);
     for (;;) {
-        //uint16_t sizeToRead = 0;
         uint16_t sizeToRead = readPacketLength(sock);
         if (sizeToRead == 0) {
             //Client has left us
@@ -659,7 +722,6 @@ void sendSigningKey(const int sock, const unsigned char *key, const size_t keyLe
 void sendEphemeralKey(const int sock, struct client *clientEntry, const unsigned char *key, const size_t keyLen, const unsigned char *hmac, const size_t hmacLen) {
     uint16_t packetLength = keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t);
 
-    //unsigned char *mesgBuffer = checked_malloc(packetLength);
     unsigned char mesgBuffer[packetLength];
     memcpy(mesgBuffer, &packetLength, sizeof(uint16_t));
     fillRandom((unsigned char *) &(clientEntry->seq), sizeof(uint16_t));
