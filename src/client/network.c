@@ -522,6 +522,7 @@ static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
 }
 
 void *waitAckReceived(void *args) {
+    (void)(args);
     struct client *dest = &clientList[0];
     for (;;) {
 start:
