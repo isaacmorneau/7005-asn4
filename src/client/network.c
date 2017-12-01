@@ -130,13 +130,6 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         pthread_mutex_unlock(&clientLock);
     }
 
-    uint16_t seqVal;
-    memcpy(&seqVal, buffer + 1, sizeof(uint16_t));
-    if (seqVal <= src->seq) {
-        debug_print("Got duplicate packet with %d\n", seqVal);
-        return;
-    }
-
     write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
 
 #ifndef NDEBUG
@@ -546,7 +539,6 @@ start:
         int n;
 wait:
         clock_gettime(CLOCK_REALTIME, &timeToWait);
-        timespec_add_ns(&timeToWait, TIMEOUT_NS);
 
         n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
         if (n == 0) {
