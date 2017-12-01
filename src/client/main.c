@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
         listenSock = createSocket(AF_INET, SOCK_STREAM, 0);
         bindSocket(listenSock, port);
         listen(listenSock, 5);
-        startServer();
+        startServer(inputFD);
         close(listenSock);
     } else {
         startClient(ipAddr, portString, inputFD);

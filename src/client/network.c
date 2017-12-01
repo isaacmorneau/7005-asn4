@@ -68,16 +68,17 @@ bool ackReceived = false;
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
 #define TIMEOUT_NS 700ul * MICRO_IN_SEC
-#define MAX_RETRIES 10
+#define MAX_RETRIES 30
 
 struct timespec timeToWait;
 
 pthread_once_t threadCreateFlag = PTHREAD_ONCE_INIT;
 
 void *waitAckReceived(void *args);
+void createAckThread(void);
 
 void network_init(void) {
-    _Static_assert(TIMEOUT_NS < NANO_IN_SEC, "Packet timeout value must be less than the number of nanoseconds in one second");
+    //_Static_assert(TIMEOUT_NS < NANO_IN_SEC, "Packet timeout value must be less than the number of nanoseconds in one second");
     initCrypto();
     LongTermSigningKey = generateECKey();
     clientList = checked_calloc(10, sizeof(struct client));
@@ -128,6 +129,16 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
             debug_print("\nAck value was not the one we were looking for, ignoring...\n\n");
         }
         pthread_mutex_unlock(&clientLock);
+    } else if (buffer[0] == NONE) {
+        //Ack the validated packet
+        pthread_once(&threadCreateFlag, createAckThread);
+
+        uint16_t seqVal;
+        memcpy(&seqVal, buffer + 1, sizeof(uint16_t));
+        debug_print("\nReceived packet with sequence number %d\n", seqVal);
+        pthread_mutex_lock(&clientLock);
+        src->ack = seqVal;
+        pthread_mutex_unlock(&clientLock);
     }
 
     write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
@@ -155,7 +166,6 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         printf("%c", buffer[i + 7]);
     }
     printf("\n");
-
 #endif
 }
 
@@ -312,13 +322,15 @@ void startClient(const char *ip, const char *portString, int inputFD) {
         }
     }
 
+    while(isRunning);
+
 clientCleanup:
     close(epollfd);
     close(inputFD);
     network_cleanup();
 }
 
-void startServer(void) {
+void startServer(const int inputFD) {
     network_init();
 
     int epollfd = createEpollFd();
@@ -331,9 +343,72 @@ void startServer(void) {
 
     addEpollSocket(epollfd, listenSock, &ev);
 
-    //TODO: Create threads here instead of calling eventloop directly
-    eventLoop(&epollfd);
+    size_t newClientIndex = 999;
 
+    for(;;) {
+        int sock = accept(listenSock, NULL, NULL);
+        if (sock == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                //No incoming connections, ignore the error
+                if (newClientIndex == 999) {
+                    continue;
+                }
+                break;
+            }
+            fatal_error("accept");
+        }
+
+        setNonBlocking(sock);
+
+        newClientIndex = addClient(sock);
+
+        unsigned char *secretKey = exchangeKeys(&clientList[newClientIndex].socket);
+        debug_print_buffer("Shared secret: ", secretKey, HASH_SIZE);
+
+        struct epoll_event tmpEv;
+        tmpEv.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+        tmpEv.data.ptr = &clientList[newClientIndex];
+
+        addEpollSocket(epollfd, sock, &tmpEv);
+    }
+    assert(newClientIndex != 999);
+
+    printf("New client index for server: %zu\n", newClientIndex);
+
+    pthread_t readThread;
+    pthread_create(&readThread, NULL, eventLoop, &epollfd);
+
+    printf("Down here\n");
+
+    unsigned char mesgBuffers[WINDOW_SIZE][MAX_USER_BUFFER];
+    int amountRead[WINDOW_SIZE];
+
+#if 1
+    while(isRunning) {
+        for (int i = 0; i < WINDOW_SIZE; ++i) {
+            int n = read(inputFD, mesgBuffers[i], MAX_USER_BUFFER);
+            amountRead[i] = n;
+            if (n <= 0) {
+                break;
+            }
+            printf("Read %d\n", n);
+        }
+        if (amountRead[0] <= 0) {
+            //First read of the window was EOF
+            //Nothing to send
+            break;
+        }
+        for (int i = 0; i < WINDOW_SIZE && amountRead[i] > 0; ++i) {
+            sendReliablePacket((unsigned char *) mesgBuffers[i], amountRead[i], &clientList[newClientIndex]);
+            ++clientList[newClientIndex].seq;
+        }
+    }
+#endif
+
+    while(isRunning);
+
+    close(epollfd);
+    close(inputFD);
     network_cleanup();
 }
 
@@ -478,25 +553,8 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
         return;
     }
 
-    //Ack the validated packet
-    if (isServer) {
-        ackReceived = true;
-        pthread_cond_broadcast(&cv);
-
-        pthread_once(&threadCreateFlag, createAckThread);
-    }
-
     unsigned char *plain = checked_malloc(mesgLen);
     size_t plainLen = decrypt(mesg + sizeof(uint16_t), mesgLen - HASH_SIZE - IV_SIZE - sizeof(uint16_t), src->sharedKey, mesg + mesgLen - HASH_SIZE - IV_SIZE, plain);
-
-    if (isServer) {
-        uint16_t seqVal;
-        memcpy(&seqVal, plain + 1, sizeof(uint16_t));
-        debug_print("\nServer received packet with sequence number %d\n", seqVal);
-        pthread_mutex_lock(&clientLock);
-        src->ack = seqVal;
-        pthread_mutex_unlock(&clientLock);
-    }
 
     process_packet(plain, plainLen, src);
 
@@ -526,44 +584,17 @@ static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
 void *waitAckReceived(void *args) {
     (void)(args);
     struct client *dest = &clientList[0];
-    for (;;) {
-start:
-        pthread_mutex_lock(&clientLock);
-        ackReceived = false;
-        pthread_mutex_unlock(&clientLock);
-
+    while (isRunning) {
         debug_print("\nSending Ack\n");
         sendEncryptedUserData((const unsigned char *) "", 0, dest, true);
 
-        pthread_mutex_lock(&clientLock);
-        int n;
-wait:
         clock_gettime(CLOCK_REALTIME, &timeToWait);
-
-        n = pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
-        if (n == 0) {
-            if (ackReceived) {
-                //Successful wakeup
-                debug_print("\nWoke up to an ack, all is good\n");
-                pthread_mutex_unlock(&clientLock);
-                goto start;
-            } else {
-                //Spurious wakeup, wait again
-                goto wait;
-            }
-        } else {
-            if (n == ETIMEDOUT) {
-                //Timeout occurred, resend packet
-                pthread_mutex_unlock(&clientLock);
-                goto start;
-            } else {
-                errno = n;
-                pthread_mutex_unlock(&clientLock);
-                fatal_error("pthread_cond_wait");
-            }
-        }
-        __builtin_unreachable();
+        timespec_add_ns(&timeToWait, TIMEOUT_NS / 10);
+    pthread_mutex_lock(&clientLock);
+        pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
+    pthread_mutex_unlock(&clientLock);
     }
+    return NULL;
 }
 
 

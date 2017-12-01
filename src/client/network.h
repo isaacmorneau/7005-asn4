@@ -81,7 +81,7 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
 unsigned char *exchangeKeys(const int * const sock);
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen);
 void startClient(const char *ip, const char *portString, int inputFD);
-void startServer(void);
+void startServer(const int inputFD);
 size_t addClient(int sock);
 void initClientStruct(struct client *newClient, int sock);
 void *eventLoop(void *epollfd);
