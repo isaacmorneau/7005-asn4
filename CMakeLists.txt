@@ -22,6 +22,8 @@ add_definitions(-D_POSIX_C_SOURCE=200809L)
 add_definitions(-D_DEFAULT_SOURCE)
 
 include_directories(src)
+include_directories(${CMAKE_SOURCE_DIR})
+link_directories(${CMAKE_SOURCE_DIR})
 
 file(GLOB LOSSY
     "src/lossy/*.c"
@@ -35,24 +37,13 @@ file(GLOB MAIN
     "src/client/*.h"
     )
 
-# put your files in here john
-#set(MAIN
-    #    src/main.c
-    #    src/wrapper.c
-    #    src/wrapper.h
-    #)
-
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 find_package(OpenSSL REQUIRED)
 
-find_package(OpenMP REQUIRED)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-
 add_executable(7005-asn4-lossy ${LOSSY})
 add_executable(7005-asn4 ${MAIN})
 
 target_link_libraries(7005-asn4-lossy rt Threads::Threads m)
-target_link_libraries(7005-asn4 rt Threads::Threads OpenSSL::Crypto)
+target_link_libraries(7005-asn4 rt Threads::Threads dl ${CMAKE_SOURCE_DIR}/libcrypto.a)
