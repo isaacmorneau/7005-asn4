@@ -78,7 +78,6 @@ void *waitAckReceived(void *args);
 void createAckThread(void);
 
 void network_init(void) {
-    //_Static_assert(TIMEOUT_NS < NANO_IN_SEC, "Packet timeout value must be less than the number of nanoseconds in one second");
     initCrypto();
     LongTermSigningKey = generateECKey();
     clientList = checked_calloc(10, sizeof(struct client));
@@ -322,6 +321,7 @@ void startClient(const char *ip, const char *portString, int inputFD) {
         }
     }
 
+    //Spin to ensure we've received all of the other side's data
     while(isRunning);
 
 clientCleanup:
@@ -373,17 +373,12 @@ void startServer(const int inputFD) {
     }
     assert(newClientIndex != 999);
 
-    printf("New client index for server: %zu\n", newClientIndex);
-
     pthread_t readThread;
     pthread_create(&readThread, NULL, eventLoop, &epollfd);
-
-    printf("Down here\n");
 
     unsigned char mesgBuffers[WINDOW_SIZE][MAX_USER_BUFFER];
     int amountRead[WINDOW_SIZE];
 
-#if 1
     while(isRunning) {
         for (int i = 0; i < WINDOW_SIZE; ++i) {
             int n = read(inputFD, mesgBuffers[i], MAX_USER_BUFFER);
@@ -403,8 +398,8 @@ void startServer(const int inputFD) {
             ++clientList[newClientIndex].seq;
         }
     }
-#endif
 
+    //Spin to ensure we've received all of the other side's data
     while(isRunning);
 
     close(epollfd);
@@ -590,9 +585,9 @@ void *waitAckReceived(void *args) {
 
         clock_gettime(CLOCK_REALTIME, &timeToWait);
         timespec_add_ns(&timeToWait, TIMEOUT_NS / 10);
-    pthread_mutex_lock(&clientLock);
+        pthread_mutex_lock(&clientLock);
         pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
-    pthread_mutex_unlock(&clientLock);
+        pthread_mutex_unlock(&clientLock);
     }
     return NULL;
 }
