@@ -86,10 +86,18 @@ int main(int argc, char ** argv) {
                     switch (*optarg) {
                         case 'B':
                             error_type = ERROR_BER;
+                            if (optarg[1] == '\0') {
+                                print_help();
+                                return 1;
+                            }
                             dec_to_frac(optarg+1, &BER_rate, &BER_loop);
                             break;
                         case 'W':
                             error_type = ERROR_WAIT;
+                            if (optarg[1] == '\0') {
+                                print_help();
+                                return 1;
+                            }
                             delay = atoi(optarg+1);
                             break;
                         case 'D':
