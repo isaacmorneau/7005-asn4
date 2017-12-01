@@ -8,30 +8,45 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <unistd.h>
 #include <omp.h>
 
 #include "wrapper.h"
 #include "errors.h"
 
-#define SOCKOPTS "p:a:e:h"
+#define SOCKOPTS "p:f:t:a:e:h"
 #define MAXEVENTS 64
+#define ERROR_DROP 0
+#define ERROR_BER 1
+#define ERROR_WAIT 2
 
 static inline void print_help() {
     printf("usage options:\n"
-            "\t [p]ort <1-65535>        - the port to listen to and forward to\n"
-            "\t [a]ddress <url || ip>   - the address forward to\n"
-            "\t [e]rror <percentage>    - the error rate to drop\n"
+            "\t [p]ort <1-65535>                    - the port to listen to\n"
+            "\t [f]orward <1-65535>                 - the port to forward to\n"
+            "\t [a]ddress <url || ip>               - the address forward to\n"
+            "\t [e]rror <percentage>                - the error rate, default is no errors\n"
+            "\t [t]ype <D || B || W[microseconds]>  - the type of error to have\n"
+            "\t\t D is to drop packets, default type\n"
+            "\t\t B is BER to corrupt packets in percent such as B5.0\n"
+            "\t\t W is time to wait in microseconds such as W100\n"
             "\t [h]elp                  - this message\n"
           );
 }
 
 int main(int argc, char ** argv) {
     char * port= 0;
+    char * forward = 0;
     char * address = 0;
     char * drop = 0;
+
     int handshake_delay = 4;
+    int error_type = 0;
+    useconds_t delay = 0;
+    int BER_rate = 0, BER_loop = 1;
     errors er;
     er.loop = -1;
+
     //handle the arguments in its own scope
     {
         int c;
@@ -40,8 +55,10 @@ int main(int argc, char ** argv) {
 
             static struct option long_options[] = {
                 {"port",    required_argument, 0, 'p'},
+                {"forward", required_argument, 0, 'f'},
                 {"address", required_argument, 0, 'a'},
                 {"error",   required_argument, 0, 'e'},
+                {"type",    required_argument, 0, 't'},
                 {"help",    no_argument,       0, 'h'},
                 {0,         0,                 0, 0}
             };
@@ -55,12 +72,31 @@ int main(int argc, char ** argv) {
                 case 'p':
                     port = optarg;
                     break;
+                case 'f':
+                    forward = optarg;
+                    break;
                 case 'a':
                     address = optarg;
                     break;
                 case 'e':
                     drop = optarg;
                     errors_init(&er, drop);
+                    break;
+                case 't':
+                    switch (*optarg) {
+                        case 'B':
+                            error_type = ERROR_BER;
+                            dec_to_frac(optarg+1, &BER_rate, &BER_loop);
+                            break;
+                        case 'W':
+                            error_type = ERROR_WAIT;
+                            delay = atoi(optarg+1);
+                            break;
+                        case 'D':
+                        default:
+                            error_type = ERROR_DROP;
+                            break;
+                    }
                     break;
                 case 'h':
                 case '?':
@@ -72,6 +108,9 @@ int main(int argc, char ** argv) {
         if (!port || !address) {
             print_help();
             return 1;
+        }
+        if (!forward) {
+            forward = port;
         }
     }
 
@@ -156,7 +195,7 @@ int main(int argc, char ** argv) {
                             printf("Accepted connection on descriptor %d "
                                     "(host=%s, port=%s)\n", infd, hbuf, sbuf);
                         }
-                        outfd = make_connected(address, port);
+                        outfd = make_connected(address, forward);
                         if (outfd == -1) {
                             fprintf(stderr, "Failed to establish bridged connection\n");
                             close(infd);
@@ -209,11 +248,23 @@ int main(int argc, char ** argv) {
                             packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                             printf("packet sent %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
                         } else {
-                            //TODO test the damage of the packet damage
-                            //damage_packet(&pkt, 5, 100);
-                            //packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
-                            //printf("packet corrupted\n");
-                            printf("packet dropped %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
+                            switch (error_type) {
+                                case ERROR_DROP:
+                                    printf("packet dropped %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
+                                    break;
+                                case ERROR_WAIT:
+                                    //I hate using sleeps but for a blocking wait theres not a better alternative
+                                    //if you grep for this again im sorry to use it.
+                                    printf("packet delayed %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
+                                    usleep(delay);
+                                    packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
+                                    break;
+                                case ERROR_BER:
+                                    printf("packet corrupted %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
+                                    damage_packet(&pkt, BER_rate, BER_loop);
+                                    packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
+                                    break;
+                            }
                         }
                     }
                 }
