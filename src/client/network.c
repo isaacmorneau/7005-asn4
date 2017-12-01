@@ -126,6 +126,8 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         pthread_mutex_unlock(&clientLock);
     }
 
+    write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
+
 #ifndef NDEBUG
     printf("Received packet of size %zu\n", bufsize);
     debug_print_buffer("Raw hex output: ", buffer, bufsize);

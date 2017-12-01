@@ -44,6 +44,8 @@
 
 volatile sig_atomic_t isRunning;
 
+extern int outputFD;
+
 char *getUserInput(const char *prompt);
 
 void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size);

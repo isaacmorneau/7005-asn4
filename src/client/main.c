@@ -51,15 +51,18 @@
 #include "socket.h"
 #include "network.h"
 
+int outputFD = -1;
+
 static void sighandler(int signo);
 
 static struct option long_options[] = {
     {"port",    required_argument, 0, 'p'},
     {"help",    no_argument,       0, 'h'},
-    {"client",  no_argument,       0, 'h'},
-    {"server",  no_argument,       0, 'h'},
-    {"ip",      required_argument, 0, 'h'},
-    {"file",    required_argument, 0, 'h'},
+    {"client",  no_argument,       0, 'c'},
+    {"server",  no_argument,       0, 's'},
+    {"ip",      required_argument, 0, 'i'},
+    {"file",    required_argument, 0, 'f'},
+    {"out",    required_argument, 0,  'o'},
     {0,         0,                 0, 0}
 };
 
@@ -91,13 +94,14 @@ int main(int argc, char **argv) {
     const char *portString = NULL;
     const char *ipAddr = NULL;
     const char *filename = NULL;
+    const char *outFileName = NULL;
 
     int inputFD = -1;
 
     int c;
     for (;;) {
         int option_index = 0;
-        if ((c = getopt_long(argc, argv, "csp:i:f:h", long_options, &option_index)) == -1) {
+        if ((c = getopt_long(argc, argv, "csp:i:f:ho:", long_options, &option_index)) == -1) {
             break;
         }
         switch (c) {
@@ -116,6 +120,9 @@ int main(int argc, char **argv) {
                 break;
             case 'f':
                 filename = optarg;
+                break;
+            case 'o':
+                outFileName = optarg;
                 break;
             case 'h':
                 //Intentional fallthrough
@@ -154,6 +161,19 @@ int main(int argc, char **argv) {
         }
         inputFD = fileno(fp);
         assert(inputFD != -1);
+    }
+    if (outFileName == NULL) {
+        puts("No output file provided, defaulting to stdout");
+        outputFD = STDOUT_FILENO;
+    } else {
+        FILE *fp = fopen(outFileName, "wb");
+        if (fp == NULL) {
+            printf("Filename invalid\n");
+            print_help();
+            return EXIT_FAILURE;
+        }
+        outputFD = fileno(fp);
+        assert(outputFD != -1);
     }
 
     port = strtoul(portString, NULL, 0);
