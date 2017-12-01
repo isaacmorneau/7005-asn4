@@ -70,6 +70,8 @@ bool ackReceived = false;
 #define TIMEOUT_NS 700ul * MICRO_IN_SEC
 #define MAX_RETRIES 30
 
+#define ACK_DELAY_NS 10ul * MICRO_IN_SEC
+
 struct timespec timeToWait;
 
 pthread_once_t threadCreateFlag = PTHREAD_ONCE_INIT;
@@ -584,7 +586,7 @@ void *waitAckReceived(void *args) {
         sendEncryptedUserData((const unsigned char *) "", 0, dest, true);
 
         clock_gettime(CLOCK_REALTIME, &timeToWait);
-        timespec_add_ns(&timeToWait, TIMEOUT_NS / 10);
+        timespec_add_ns(&timeToWait, ACK_DELAY_NS);
         pthread_mutex_lock(&clientLock);
         pthread_cond_timedwait(&cv, &clientLock, &timeToWait);
         pthread_mutex_unlock(&clientLock);
