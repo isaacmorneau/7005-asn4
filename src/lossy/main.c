@@ -8,17 +8,21 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
-#include <unistd.h>
-#include <omp.h>
+#include <time.h>
 
 #include "wrapper.h"
 #include "errors.h"
 
 #define SOCKOPTS "p:f:t:a:e:h"
+
 #define MAXEVENTS 64
+
 #define ERROR_DROP 0
 #define ERROR_BER 1
 #define ERROR_WAIT 2
+
+#define MICRO_IN_SEC 1000ul * 1000ul
+#define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
 static inline void print_help() {
     printf("usage options:\n"
@@ -34,6 +38,26 @@ static inline void print_help() {
           );
 }
 
+
+//thanks https://eastskykang.wordpress.com/2015/03/24/138/
+static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder) {
+    uint32_t ret = 0;
+    while (dividend >= divisor) {
+        /* The following asm() prevents the compiler from
+           optimising this loop into a modulo operation.  */
+        __asm__("": "+rm"(dividend));
+        dividend -= divisor;
+        ret++;
+    }
+    *remainder = dividend;
+    return ret;
+}
+
+static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
+    a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
+    a->tv_nsec = ns;
+}
+
 int main(int argc, char ** argv) {
     char * port= 0;
     char * forward = 0;
@@ -42,7 +66,8 @@ int main(int argc, char ** argv) {
 
     int handshake_delay = 4;
     int error_type = 0;
-    useconds_t delay = 0;
+    int delay = 0;
+    struct timespec time_to_wait;
     int BER_rate = 0, BER_loop = 1;
     errors er;
     er.loop = -1;
@@ -160,7 +185,6 @@ int main(int argc, char ** argv) {
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
 
-    //#pragma omp parallel
     while (1) {
         int n, i;
 
@@ -264,7 +288,10 @@ int main(int argc, char ** argv) {
                                     //I hate using sleeps but for a blocking wait theres not a better alternative
                                     //if you grep for this again im sorry to use it.
                                     printf("packet delayed %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
-                                    usleep(delay);
+
+                                    clock_gettime(CLOCK_REALTIME, &time_to_wait);
+                                    timespec_add_ns(&time_to_wait, delay);
+                                    nanosleep(&time_to_wait, 0);
                                     packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);
                                     break;
                                 case ERROR_BER:
