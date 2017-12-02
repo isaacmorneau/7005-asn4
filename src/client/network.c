@@ -303,6 +303,17 @@ void startClient(const char *ip, const char *portString, int inputFD) {
     unsigned char mesgBuffers[WINDOW_SIZE][MAX_USER_BUFFER];
     int amountRead[WINDOW_SIZE];
 
+    FILE *fp = fdopen(inputFD, "rb");
+    fseek(fp, 0, SEEK_END);
+    long fileSize  =ftell(fp);
+    rewind(fp);
+
+    if (inputFD != STDIN_FILENO) {
+        printf("Filesize: %lu\n", fileSize);
+    }
+
+    size_t packetNum = 1;
+
     while(isRunning) {
         for (int i = 0; i < WINDOW_SIZE; ++i) {
             int n = read(inputFD, mesgBuffers[i], MAX_USER_BUFFER);
@@ -310,7 +321,11 @@ void startClient(const char *ip, const char *portString, int inputFD) {
             if (n <= 0) {
                 break;
             }
-            printf("Read %d\n", n);
+            if (inputFD == STDIN_FILENO) {
+                printf("Sending user packet of size %d\n", n);
+            } else {
+                printf("Sending packet %zu of %zu\n", packetNum++, (fileSize / MAX_USER_BUFFER) + 1);
+            }
         }
         if (amountRead[0] <= 0) {
             //First read of the window was EOF
@@ -322,6 +337,8 @@ void startClient(const char *ip, const char *portString, int inputFD) {
             ++serverEntry->seq;
         }
     }
+
+    printf("File sending complete\n");
 
     //Spin to ensure we've received all of the other side's data
     while(isRunning);
@@ -378,6 +395,17 @@ void startServer(const int inputFD) {
     pthread_t readThread;
     pthread_create(&readThread, NULL, eventLoop, &epollfd);
 
+    FILE *fp = fdopen(inputFD, "rb");
+    fseek(fp, 0, SEEK_END);
+    long fileSize  =ftell(fp);
+    rewind(fp);
+
+    if (inputFD != STDIN_FILENO) {
+        printf("Filesize: %lu\n", fileSize);
+    }
+
+    size_t packetNum = 1;
+
     unsigned char mesgBuffers[WINDOW_SIZE][MAX_USER_BUFFER];
     int amountRead[WINDOW_SIZE];
 
@@ -388,7 +416,11 @@ void startServer(const int inputFD) {
             if (n <= 0) {
                 break;
             }
-            printf("Read %d\n", n);
+            if (inputFD == STDIN_FILENO) {
+                printf("Sending user packet of size %d\n", n);
+            } else {
+                printf("Sending packet %zu of %zu\n", packetNum++, (fileSize / MAX_USER_BUFFER) + 1);
+            }
         }
         if (amountRead[0] <= 0) {
             //First read of the window was EOF
@@ -400,6 +432,8 @@ void startServer(const int inputFD) {
             ++clientList[newClientIndex].seq;
         }
     }
+
+    printf("File sending complete\n");
 
     //Spin to ensure we've received all of the other side's data
     while(isRunning);
@@ -710,7 +744,6 @@ void handleIncomingPacket(struct client *src) {
             break;
         }
         memcpy(buffer, &sizeToRead, sizeof(uint16_t));
-        printf("Packet size to read: %d\n", sizeToRead);
         {
             unsigned char *tmpBuf = buffer + sizeof(uint16_t);
             uint16_t tmpSize = sizeToRead - sizeof(uint16_t);
