@@ -38,10 +38,10 @@ void errors_init(errors * restrict er, const char * rate) {
     double dec = atof(rate);
     if (dec > 100.0) {
         fprintf(stderr, "you cannot lose more than all packets don't be ridiculous\n");
-        abort();
+        exit(1);
     } else if (dec < 0.0) {
         fprintf(stderr, "you cannot lose less than no packets don't be ridiculous\n");
-        abort();
+        exit(1);
     }
     er->index = 0;
     dec_to_frac(rate, &er->rate, &er->loop);
