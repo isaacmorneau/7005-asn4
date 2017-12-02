@@ -67,7 +67,7 @@ bool ackReceived = false;
 #define MICRO_IN_SEC 1000ul * 1000ul
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
-#define TIMEOUT_NS 700ul * MICRO_IN_SEC
+#define TIMEOUT_NS 500ul * MICRO_IN_SEC
 #define MAX_RETRIES 30
 
 #define ACK_DELAY_NS 10ul * MICRO_IN_SEC
@@ -75,6 +75,9 @@ bool ackReceived = false;
 struct timespec timeToWait;
 
 pthread_once_t threadCreateFlag = PTHREAD_ONCE_INIT;
+
+atomic_bool finishedSending = ATOMIC_VAR_INIT(false);
+atomic_bool finishedReceiving = ATOMIC_VAR_INIT(false);
 
 void *waitAckReceived(void *args);
 void createAckThread(void);
@@ -111,7 +114,7 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
     (void)(buffer);
     (void)(bufsize);
 
-    if (buffer[0] == ACK) {
+    if (buffer[0] & ACK) {
         pthread_mutex_lock(&clientLock);
 
         uint16_t ackVal;
@@ -130,6 +133,10 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
             debug_print("\nAck value was not the one we were looking for, ignoring...\n\n");
         }
         pthread_mutex_unlock(&clientLock);
+
+        if (buffer[0] & FIN) {
+            atomic_store(&finishedReceiving, true);
+        }
     } else if (buffer[0] == NONE) {
         //Ack the validated packet
         pthread_once(&threadCreateFlag, createAckThread);
@@ -340,8 +347,14 @@ void startClient(const char *ip, const char *portString, int inputFD) {
 
     printf("File sending complete\n");
 
+    atomic_store(&finishedSending, true);
+
     //Spin to ensure we've received all of the other side's data
-    while(isRunning);
+    while(isRunning) {
+        if (finishedSending && finishedReceiving) {
+            break;
+        }
+    }
 
 clientCleanup:
     close(epollfd);
@@ -435,8 +448,14 @@ void startServer(const int inputFD) {
 
     printf("File sending complete\n");
 
+    atomic_store(&finishedSending, true);
+
     //Spin to ensure we've received all of the other side's data
-    while(isRunning);
+    while(isRunning) {
+        if (finishedSending && finishedReceiving) {
+            break;
+        }
+    }
 
     close(epollfd);
     close(inputFD);
@@ -522,7 +541,7 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
     unsigned char wrappedMesg[mesgLen + HEADER_SIZE - sizeof(uint16_t)];
 
     //Fill wrappedMesg with appropriate values
-    memset(wrappedMesg, (isAck) ? ACK : NONE, sizeof(unsigned char));
+    memset(wrappedMesg, (isAck) ? ((finishedSending) ? FIN | ACK : ACK) : NONE, sizeof(unsigned char));
     memcpy(wrappedMesg + sizeof(unsigned char), &dest->seq, sizeof(uint16_t));
     memcpy(wrappedMesg + sizeof(unsigned char) + sizeof(uint16_t), &dest->ack, sizeof(uint16_t));
     memcpy(wrappedMesg + sizeof(unsigned char) + (sizeof(uint16_t) * 2), &dest->windowSize, sizeof(uint16_t));
