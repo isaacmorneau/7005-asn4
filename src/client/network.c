@@ -102,10 +102,10 @@ bool ackReceived = false;
 #define MICRO_IN_SEC 1000ul * 1000ul
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
-#define TIMEOUT_NS 700ul * MICRO_IN_SEC
+#define TIMEOUT_NS 1000ul * MICRO_IN_SEC
 #define MAX_RETRIES 30
 
-#define ACK_DELAY_NS 1
+#define ACK_DELAY_NS 10ul * MICRO_IN_SEC
 
 struct timespec timeToWait;
 
