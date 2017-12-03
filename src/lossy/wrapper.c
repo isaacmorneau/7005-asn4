@@ -1,3 +1,31 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  wrapper.c
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  The wrappers for interacting with the networking for epoll
+ *
+ *      Functions:  make_bound();
+ *                  make_connected();
+ *                  make_non_blocking();
+ *                  packet_read();
+ *                  packet_send();
+ *                  epoll_data_init();
+ *                  epoll_data_close()
+ *
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:40:00 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+#include <stdlib.h>
+
 #define _GNU_SOURCE
 #include <fcntl.h>
 
@@ -163,16 +191,10 @@ int packet_send(epoll_data * epd, raw_packet * packet) {
 }
 
 void epoll_data_close(epoll_data * epd) {
-    //close(epd->pipefd[0]);
-    //close(epd->pipefd[1]);
     close(epd->fd);
 }
 
 int epoll_data_init(epoll_data * epd, int fd) {
     epd->fd = fd;
-    //if (pipe(epd->pipefd)) {
-    //    perror("pipe");
-    //    return 1;
-    //}
     return 0;
 }

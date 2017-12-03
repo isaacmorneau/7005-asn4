@@ -1,3 +1,31 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  errors.c
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  The functions for cumputing and using the error rate in the lossy
+ *                  middle man.
+ *
+ *      Functions:  ipow();
+ *                  dec_to_frac();
+ *                  errors_init();
+ *                  errors_close();
+ *                  errors_checkdrop();
+ *                  errors_regen();
+ *                  damage_packet();
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:36:50 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+#include <stdlib.h>
+
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>

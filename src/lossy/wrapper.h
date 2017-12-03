@@ -1,3 +1,29 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  wrapper.h
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  The wrappers for the network interaction with epoll
+ *
+ *      Functions:  make_bound();
+ *                  make_connected();
+ *                  make_non_blocking();
+ *                  packet_read();
+ *                  packet_send();
+ *                  epoll_data_init();
+ *                  epoll_data_close()
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:41:45 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+
 #ifndef WRAPPER_H
 #define WRAPPER_H
 #include "../packet.h"

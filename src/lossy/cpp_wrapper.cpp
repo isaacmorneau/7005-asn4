@@ -1,7 +1,42 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  cpp_wrapper.cpp
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  Wrappers around cpp source to allow for use of the cpp random stdlib
+ *                  when computing losses
+ *
+ *      Functions:  uniform_set();
+ *                  bit_pop();
+ *                  damage_set();
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:33:57 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+#include <stdlib.h>
+
 #include "cpp_wrapper.h"
 #include <random>
 #include <vector>
 
+
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  uniform_set
+ *  Description:  generate a uniform distribution of 1's in the loop size
+ *   Parameters:  int * items - the items to set to 1
+ *                int rate - the number per loop to set
+ *                int loop - the size of the items list
+ *       Return: void
+ * =====================================================================================
+ */
 void uniform_set(int * items, int rate, int loop) {
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0, loop-1);
