@@ -74,6 +74,28 @@ const size_t testStringLen = 14;
 #define THREAD_COUNT 8
 #define TASK_COUNT 1000
 
+
+/*
+ * FUNCTION: performTests
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void performTests(void);
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * This function calls all other test functions once, then spawns multiple threads which repeat the process.
+ */
 void performTests(void) {
     initCrypto();
 
@@ -83,7 +105,6 @@ void performTests(void) {
     assert(testGetSetKey());
     assert(testKeyHMAC());
 
-#if 1
     pthread_t threads[THREAD_COUNT];
 
     for (int i = 0; i < THREAD_COUNT; ++i) {
@@ -93,11 +114,28 @@ void performTests(void) {
     for (int i = 0; i < THREAD_COUNT; ++i) {
         pthread_join(threads[i], NULL);
     }
-#endif
 
     cleanupCrypto();
 }
 
+/*
+ * FUNCTION: testEncryptDecrypt
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool testEncryptDecrypt(void);
+ *
+ * RETURNS:
+ * bool - Whether the test succeeded
+ */
 bool testEncryptDecrypt(void) {
     unsigned char testKey[SYMMETRIC_KEY_SIZE];
     unsigned char testIV[IV_SIZE];
@@ -118,6 +156,24 @@ bool testEncryptDecrypt(void) {
     return strcmp((char *) plaintext, (char *) testString) == 0;
 }
 
+/*
+ * FUNCTION: testHMAC
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool testHMAC(void);
+ *
+ * RETURNS:
+ * bool - Whether the test succeeded
+ */
 bool testHMAC(void) {
     EVP_PKEY *signKey = generateECKey();
 
@@ -126,18 +182,6 @@ bool testHMAC(void) {
 
     size_t refLen = 0;
     unsigned char *refVal = generateHMAC_PKEY(testString, testStringLen, &refLen, signKey);
-
-#if 0
-    for (size_t i = 0; i < hmaclen; ++i) {
-        printf("%02x", hmac[i]);
-    }
-    printf("\n");
-
-    for (size_t i = 0; i < refLen; ++i) {
-        printf("%02x", refVal[i]);
-    }
-    printf("\n");
-#endif
 
     assert(refLen == hmaclen);
     assert(memcmp(hmac, refVal,  refLen) == 0);
@@ -151,6 +195,24 @@ bool testHMAC(void) {
     return rtn;
 }
 
+/*
+ * FUNCTION: testECDH
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool testECDH(void);
+ *
+ * RETURNS:
+ * bool - Whether the test succeeded
+ */
 bool testECDH(void) {
     EVP_PKEY *firstKey = generateECKey();
     EVP_PKEY *secondKey = generateECKey();
@@ -179,6 +241,24 @@ bool testECDH(void) {
     return strcmp((char *) plaintext, (char *) testString) == 0;
 }
 
+/*
+ * FUNCTION: testGetSetKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool testGetSetKey(void);
+ *
+ * RETURNS:
+ * bool - Whether the test succeeded
+ */
 bool testGetSetKey(void) {
     EVP_PKEY *origKey = generateECKey();
 
@@ -200,6 +280,24 @@ bool testGetSetKey(void) {
     return rtn;
 }
 
+/*
+ * FUNCTION: testKeyHMAC
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool testKeyHMAC(void);
+ *
+ * RETURNS:
+ * bool - Whether the test succeeded
+ */
 bool testKeyHMAC(void) {
     EVP_PKEY *firstKey = generateECKey();
     EVP_PKEY *secondKey = generateECKey();
@@ -226,6 +324,27 @@ bool testKeyHMAC(void) {
     return rtn;
 }
 
+/*
+ * FUNCTION: threadRoutine
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void *threadRoutine(void *arg);
+ *
+ * PARAMETERS:
+ * void *arg - Required for pthread interface, ignored
+ *
+ * RETURNS:
+ * void * - Required for pthread interface, unused.
+ */
 void *threadRoutine(void *arg) {
     for (int i = 0; i < TASK_COUNT; ++i) {
         testEncryptDecrypt();
