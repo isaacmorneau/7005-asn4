@@ -87,10 +87,15 @@ static struct option long_options[] = {
 
 #define print_help() \
     do { \
-        printf("-p/--port - Set the port\n"); \
-        printf("-c/--client - Sets the binary in client mode (incompatible with server mode)\n"); \
-        printf("-s/--server - Sets the binary in server mode (incompatible with client mode)\n"); \
-        printf("-h/--help - Display this message\n"); \
+    printf("usage options:\n"\
+            "\t [p]ort <1-65535>        - the port to use, default 1337\n"\
+            "\t [c]lient                - run as client, exclusive with server\n"\
+            "\t [s]erver                - run as server, exclusive with client\n"\
+            "\t [i]p <url || ip>        - address to connect to\n"\
+            "\t [f]ile <path/to/file>   - the file to send\n"\
+            "\t [o]ut <path/to/file>    - the file to write to, default stdout\n"\
+            "\t [h]elp                  - this message\n"\
+            );\
     } while(0)
 
 int main(int argc, char **argv) {
@@ -153,10 +158,7 @@ int main(int argc, char **argv) {
         }
     }
     if (isClient == isServer) {
-        puts("This program must be run with either the -c or -s flag, but not both.");
-        puts("Please re-run this program with one of the above flags.");
-        puts("-c represents client mode, -s represents server mode");
-        puts("-h or --help will display a list of available flags");
+        print_help();
         return EXIT_SUCCESS;
     }
     if (portString == NULL) {
