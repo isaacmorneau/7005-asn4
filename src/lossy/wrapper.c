@@ -44,6 +44,14 @@
 
 #define BUFFSIZE 1024
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  make_bound
+ *  Description:  bind to port in char string
+ *   Parameters:  const char * port - the string of the port to bind to
+ *       Return:  int - the fd of the socket or -1 for error
+ * =====================================================================================
+ */
 int make_bound(const char * port) {
     struct addrinfo hints;
     struct addrinfo *result, *rp;
@@ -90,6 +98,15 @@ int make_bound(const char * port) {
     return sfd;
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  make_connected
+ *  Description:  makes a socket connected to the address and port
+ *   Parameters:  const char * address - the address to connect to
+ *                const char * port - the port to connect to
+ *       Return:  int - the connected socket or -1 for error
+ * =====================================================================================
+ */
 int make_connected(const char * address, const char * port) {
     struct addrinfo hints;
     struct addrinfo *result, *rp;
@@ -129,6 +146,15 @@ int make_connected(const char * address, const char * port) {
     return sfd;
 }
 
+
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  make_non_blocking
+ *  Description:  makes the fd non blocking
+ *   Parameters:  int sfd - the fd to change
+ *       Return:  int - -1 for failure
+ * =====================================================================================
+ */
 int make_non_blocking(int sfd) {
     int flags, s;
 
@@ -148,6 +174,15 @@ int make_non_blocking(int sfd) {
     return 0;
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  packet_read
+ *  Description:  read in 1 packets worth of data from an epoll struct
+ *   Parameters:  epoll_data * epd - the struct to read from
+ *                raw_packet * packet - the packet to store it in
+ *       Return:  int  - -1 for error; 0 for no data; 1 for success
+ * =====================================================================================
+ */
 int packet_read(epoll_data * epd, raw_packet * packet) {
     int nr;
     if ((nr = read(epd->fd, &(packet->length), 2)) == -1) {
@@ -174,6 +209,15 @@ int packet_read(epoll_data * epd, raw_packet * packet) {
     return 1;
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  packet_send
+ *  Description:  sends 1 packet of data to the epoll structure
+ *   Parameters:  epoll_data * epd - the struct to write to
+ *                raw_packet * packet - the packet to send
+ *       Return:  int  - -1 for error; 0 for success
+ * =====================================================================================
+ */
 int packet_send(epoll_data * epd, raw_packet * packet) {
     int nr;
     for (int len = packet->length;len;) {
@@ -190,10 +234,29 @@ int packet_send(epoll_data * epd, raw_packet * packet) {
     return 0;
 }
 
+
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  epoll_data_close
+ *  Description:  close the epoll structure
+ *   Parameters:  epoll_data * epd - the struct to close
+ *       Return:  void
+ * =====================================================================================
+ */
 void epoll_data_close(epoll_data * epd) {
     close(epd->fd);
 }
 
+
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  epoll_data_init
+ *  Description:  initialze the epoll structure
+ *   Parameters:  epoll_data * epd - the struct to initialze
+ *                int fd - the fd to set to the struct
+ *       Return:  int - 0 for success
+ * =====================================================================================
+ */
 int epoll_data_init(epoll_data * epd, int fd) {
     epd->fd = fd;
     return 0;

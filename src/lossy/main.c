@@ -50,6 +50,14 @@
 #define MICRO_IN_SEC 1000ul * 1000ul
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  print_help
+ *  Description:  print the help message for the program
+ *   Parameters:  void
+ *       Return:  void
+ * =====================================================================================
+ */
 static inline void print_help() {
     printf("usage options:\n"
             "\t [p]ort <1-65535>                    - the port to listen to\n"
@@ -65,7 +73,17 @@ static inline void print_help() {
 }
 
 
-//thanks https://eastskykang.wordpress.com/2015/03/24/138/
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  __iter_div_u64_rem
+ *  Description:  quickly adds remainer and fall over to two numbers
+ *                thanks to https://eastskykang.wordpress.com/2015/03/24/138/
+ *   Parameters:  uint64_t dividend - the dividend
+ *                uint32_t divisor - the divisor
+ *                uint64_t *remainder - where to store the remainder
+ *       Return:  uint32_t - the main un overflowed int
+ * =====================================================================================
+ */
 static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder) {
     uint32_t ret = 0;
     while (dividend >= divisor) {
@@ -79,11 +97,32 @@ static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, u
     return ret;
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  timespec_add_ns
+ *  Description:  add time to timespec struct
+ *   Parameters:  struct timespec * a - the structure to add to
+ *                uint64_t ns - nanoseconds to add
+ *       Return:  void
+ * =====================================================================================
+ */
 static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
     a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
     a->tv_nsec = ns;
 }
 
+
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  main
+ *  Description:  the main funtion of the program and the entry point
+ *                initializes error rate as well as starting and running the lossy
+ *                server
+ *   Parameters:  int argc - the number of arguments
+ *                char ** argv - the array of arguments
+ *       Return:  int - the return value of the program
+ * =====================================================================================
+ */
 int main(int argc, char ** argv) {
     char * port= 0;
     char * forward = 0;

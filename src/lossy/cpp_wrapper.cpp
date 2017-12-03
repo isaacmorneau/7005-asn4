@@ -51,6 +51,14 @@ randexists:
     }
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  bit_pop
+ *  Description:  count the number of 1s in bit mask for unamed char
+ *   Parameters:  unsigned char num - the number to check
+ *       Return:  int the number of 1s in the bit mask
+ * =====================================================================================
+ */
 int bit_pop(unsigned char num) {
     int count = 0;
     while (num != 0) {
@@ -62,28 +70,33 @@ int bit_pop(unsigned char num) {
     return count;
 }
 
+/*
+ * ===  FUNCTION  ======================================================================
+ *         Name:  damage_set
+ *  Description:  flip bits in the set at the given rate per loop
+ *   Parameters:  unsigned char * items - the items to damage
+ *                int size - how many items there are
+ *                int rate - how often to damage them
+ *                int loop - how big the loop is for the rate
+ *       Return:  void
+ * =====================================================================================
+ */
 void damage_set(unsigned char * items, int size, int rate, int loop) {
     std::default_random_engine generator;
-    std::uniform_int_distribution<int> int_dist(0, loop-1);
+    std::uniform_int_distribution<int> int_dist(0, size-1);
     std::uniform_int_distribution<unsigned char> uchar_dist(0, sizeof(unsigned char));
 
-    int pos;
     unsigned char breaker;
     int bits = 0;
     int finishing_BER = rate * (size/(double)loop);
     int i = 0;
     while (i < finishing_BER) {
-randexists:
-        pos = int_dist(generator);
-        if (items[pos]) {
-            goto randexists;
-        }
         //flipped bits for XOR
         breaker = uchar_dist(generator);
         //how many bits were broken
         bits = bit_pop(breaker);
         //do the breaking
-        items[pos] ^= breaker;
+        items[int_dist(generator)] ^= breaker;
         i += bits;
     }
 }
