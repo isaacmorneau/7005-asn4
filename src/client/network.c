@@ -119,6 +119,27 @@ atomic_uint_fast16_t previousSeq = ATOMIC_VAR_INIT(0);
 void *waitAckReceived(void *args);
 void createAckThread(void);
 
+/*
+ * FUNCTION: network_init
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void network_init(void);
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Initializes network state for the application
+ */
 void network_init(void) {
     initCrypto();
     LongTermSigningKey = generateECKey();
@@ -128,6 +149,31 @@ void network_init(void) {
     pthread_cond_init(&cv, NULL);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void network_cleanup(void) {
     if (LongTermSigningKey) {
         EVP_PKEY_free(LongTermSigningKey);
@@ -145,6 +191,31 @@ void network_cleanup(void) {
 /*
  * Does nothing intentionally.
  * This is to be replaced by the application's desired behaviour
+ */
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
  */
 void process_packet(const unsigned char * const buffer, const size_t bufsize, struct client *src) {
     //Used to remove warnings about unused parameters
@@ -231,6 +302,31 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
  * Client signing key
  * Client public key + hmac
  */
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 unsigned char *exchangeKeys(const int * const sock) {
     size_t pubKeyLen;
     unsigned char *signPubKey = getPublicKey(LongTermSigningKey, &pubKeyLen);
@@ -299,6 +395,31 @@ unsigned char *exchangeKeys(const int * const sock) {
     return sharedSecret;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen) {
     assert(bufSize >= keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t));
 
@@ -317,6 +438,31 @@ bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const si
     return rtn;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void startClient(const char *ip, const char *portString, int inputFD) {
     network_init();
 
@@ -410,6 +556,31 @@ clientCleanup:
     network_cleanup();
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void startServer(const int inputFD) {
     network_init();
 
@@ -510,6 +681,31 @@ void startServer(const int inputFD) {
     network_cleanup();
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void *eventLoop(void *epollfd) {
     int efd = *((int *)epollfd);
 
@@ -538,6 +734,31 @@ void *eventLoop(void *epollfd) {
     return NULL;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 size_t addClient(int sock) {
     pthread_mutex_lock(&clientLock);
     bool foundEntry = false;
@@ -560,6 +781,31 @@ size_t addClient(int sock) {
     return clientCount - 2;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void initClientStruct(struct client *newClient, int sock) {
     newClient->socket = sock;
     newClient->sharedKey = NULL;
@@ -572,6 +818,31 @@ void initClientStruct(struct client *newClient, int sock) {
     newClient->windowSize = 0xff;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest, const bool isAck) {
     //Mesg is the plaintext, and does not include the sequence or ack, etc numbers
     assert(mesgLen <= MAX_USER_BUFFER);
@@ -634,12 +905,62 @@ void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, stru
     free(out);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void createAckThread(void) {
     pthread_t ackThread;
     pthread_create(&ackThread, NULL, waitAckReceived, NULL);
     pthread_detach(ackThread);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *src) {
     assert(mesgLen > IV_SIZE + HASH_SIZE);
 
@@ -659,7 +980,31 @@ void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, st
     free(plain);
 }
 
-
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 //thanks https://eastskykang.wordpress.com/2015/03/24/138/
 static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, uint64_t *remainder) {
     uint32_t ret = 0;
@@ -674,11 +1019,61 @@ static inline uint32_t __iter_div_u64_rem(uint64_t dividend, uint32_t divisor, u
     return ret;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 static inline void timespec_add_ns(struct timespec *a, uint64_t ns) {
     a->tv_sec += __iter_div_u64_rem(a->tv_nsec + ns, NANO_IN_SEC, &ns);
     a->tv_nsec = ns;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void *waitAckReceived(void *args) {
     (void)(args);
     struct client *dest = &clientList[0];
@@ -695,7 +1090,31 @@ void *waitAckReceived(void *args) {
     return NULL;
 }
 
-
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void sendReliablePacket(const unsigned char *mesg, const size_t mesgLen, struct client *dest) {
     int retryCount = 0;
 start:
@@ -754,6 +1173,31 @@ wait:
     __builtin_unreachable();
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void handleIncomingConnection(const int efd) {
     for(;;) {
         int sock = accept(listenSock, NULL, NULL);
@@ -780,11 +1224,61 @@ void handleIncomingConnection(const int efd) {
     }
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void handleSocketError(const int sock) {
     fprintf(stderr, "Socket error on socket %d\n", sock);
     close(sock);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 uint16_t readPacketLength(const int sock) {
     uint16_t sizeToRead = 0;
 
@@ -801,6 +1295,31 @@ uint16_t readPacketLength(const int sock) {
     return sizeToRead;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void handleIncomingPacket(struct client *src) {
     const int sock = src->socket;
     unsigned char *buffer = checked_malloc(MAX_PACKET_SIZE);
@@ -836,6 +1355,31 @@ void handleIncomingPacket(struct client *src) {
     free(buffer);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void sendSigningKey(const int sock, const unsigned char *key, const size_t keyLen) {
     uint16_t packetLength = keyLen + sizeof(uint16_t);
     unsigned char tmpSigningKeyBuffer[packetLength];
@@ -849,6 +1393,31 @@ void sendSigningKey(const int sock, const unsigned char *key, const size_t keyLe
     rawSend(sock, tmpSigningKeyBuffer, packetLength);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void sendEphemeralKey(const int sock, struct client *clientEntry, const unsigned char *key, const size_t keyLen, const unsigned char *hmac, const size_t hmacLen) {
     uint16_t packetLength = keyLen + hmacLen + sizeof(uint16_t) + sizeof(uint16_t);
 
@@ -864,6 +1433,31 @@ void sendEphemeralKey(const int sock, struct client *clientEntry, const unsigned
     rawSend(sock, mesgBuffer, packetLength);
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 void readSigningKey(const int sock, struct client *clientEntry, const size_t keyLen) {
     const uint16_t packetLength = keyLen + sizeof(uint16_t);
     unsigned char mesgBuffer[packetLength];

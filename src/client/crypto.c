@@ -76,6 +76,27 @@
 #include "crypto.h"
 #include "macro.h"
 
+/*
+ * FUNCTION: initCrypto
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void initCrypto(void)
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Initializes libcrypto library
+ */
 void initCrypto(void) {
     // Load the human readable error strings for libcrypto
     ERR_load_crypto_strings();
@@ -89,6 +110,27 @@ void initCrypto(void) {
     }
 }
 
+/*
+ * FUNCTION: cleanupCrypto
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void cleanupCrypto(void)
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Cleans up libcrypto state.
+ */
 void cleanupCrypto(void) {
     //Cleanup config file
     CONF_modules_unload(1);
@@ -103,10 +145,56 @@ void cleanupCrypto(void) {
     ERR_free_strings();
 }
 
+/*
+ * FUNCTION: fillRandom
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void fillRandom(unsigned char *buf, size_t n)
+ *
+ * PARAMETERS:
+ * unsigned char *buf - The buffer to write to
+ * size_t n - The number of bytes to write
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Wrapper around libcrypto CSPRNG call.
+ */
 void fillRandom(unsigned char *buf, size_t n) {
     checkCryptoAPICall(RAND_bytes(buf, n));
 }
 
+/*
+ * FUNCTION: generateECKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *generateECKey(void);
+ *
+ * RETURNS:
+ * EVP_PKEY * - The generated key.
+ *
+ * NOTES:
+ * Generates a new NIST 521-bit elliptic curve keypair
+ */
 EVP_PKEY *generateECKey(void) {
     EVP_PKEY_CTX *pctx;
     nullCheckCryptoAPICall(pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL));
@@ -135,6 +223,33 @@ EVP_PKEY *generateECKey(void) {
     return key;
 }
 
+/*
+ * FUNCTION: generateHMAC_PKEY
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * unsigned char *generateHMAC_PKEY(const unsigned char *mesg, size_t mlen, size_t *hmaclen, EVP_PKEY *key);
+ *
+ * PARAMETERS:
+ * const unsigned char *mesg - The mesg to generate the hmac over
+ * size_t mlen - The length of the message
+ * size_t *hmaclen - A pointer to a buffer to store the resulting hmac length
+ * EVP_PKEY *key - The key used to generate the HMAC
+ *
+ * RETURNS:
+ * unsigned char * - A buffer containing the hmac that was generated
+ *
+ * NOTES:
+ * Grabs the key's public key and calls generateHMAC_Buffer with it
+ */
 unsigned char *generateHMAC_PKEY(const unsigned char *mesg, size_t mlen, size_t *hmaclen, EVP_PKEY *key) {
     size_t pubKeyLen = 0;
     unsigned char *pubKey = getPublicKey(key, &pubKeyLen);
@@ -146,6 +261,34 @@ unsigned char *generateHMAC_PKEY(const unsigned char *mesg, size_t mlen, size_t 
     return out;
 }
 
+/*
+ * FUNCTION: generateHMAC_Buffer
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * unsigned char *generateHMAC_Buffer(const unsigned char *mesg, size_t mlen, size_t *hmaclen, unsigned char *key, size_t keyLen);
+ *
+ * PARAMETERS:
+ * const unsigned char *mesg - The mesg to generate the hmac over
+ * size_t mlen - The length of the message
+ * size_t *hmaclen - A pointer to a buffer to store the resulting hmac length
+ * unsigned char *key - The key to generate the HMAC with
+ * size_t keyLen - The length of the provided key
+ *
+ * RETURNS:
+ * char * - A buffer containing the generated HMAC
+ *
+ * NOTES:
+ * HMAC algorithm is HMAC-SHA256.
+ */
 unsigned char *generateHMAC_Buffer(const unsigned char *mesg, size_t mlen, size_t *hmaclen, unsigned char *key, size_t keyLen) {
     if (!mesg || !mlen || !hmaclen || !key) {
         fprintf(stderr, "Tried to hmac with invalid values.\nMesg: %p\nmlen: %zu\nHMAC: %p\nKey: %p\n", (void *) mesg, mlen, (void *) hmaclen, (void *) key);
@@ -161,6 +304,31 @@ unsigned char *generateHMAC_Buffer(const unsigned char *mesg, size_t mlen, size_
     return out;
 }
 
+/*
+ * FUNCTION: verifyHMAC_PKEY
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool verifyHMAC_PKEY(const unsigned char *mesg, size_t mlen, const unsigned char *hmac, size_t hmaclen, EVP_PKEY *key);
+ *
+ * PARAMETERS:
+ * const unsigned char *mesg - The mesg buffer to verify
+ * size_t mlen - The length of the message buffer
+ * const unsigned char *hmac - The HMAC to verify
+ * size_t hmaclen - The length of the HMAC
+ * EVP_PKEY *key - The key used to generate the HMAC
+ *
+ * RETURNS:
+ * bool - Whether the HMAC is valid or not.
+ */
 bool verifyHMAC_PKEY(const unsigned char *mesg, size_t mlen, const unsigned char *hmac, size_t hmaclen, EVP_PKEY *key) {
     if (!mesg || !mlen || !hmac || !key) {
         fprintf(stderr, "Tried to validate hmac with invalid values.\nMesg: %p\nmlen: %zu\nHMAC: %p\nKey: %p\n", (void *) mesg, mlen, (void *) hmac, (void *) key);
@@ -178,6 +346,32 @@ bool verifyHMAC_PKEY(const unsigned char *mesg, size_t mlen, const unsigned char
     return result;
 }
 
+/*
+ * FUNCTION: verifyHMAC_Buffer
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * bool verifyHMAC_Buffer(const unsigned char *mesg, size_t mlen, const unsigned char *hmac, size_t hmaclen, unsigned char *key, size_t keyLen);
+ *
+ * PARAMETERS:
+ * const unsigned char *mesg - The message to verify
+ * size_t mlen - The length of the messsage
+ * const unsigned char *hmac - The HMAC to verify
+ * size_t hmaclen - The length of the HMAC
+ * unsigned char *key - A buffer containing the key used to generate the HMAC
+ * size_t keyLen - The length of the key buffer
+ *
+ * RETURNS:
+ * bool - Whether the HMAC is validated successfully.
+ */
 bool verifyHMAC_Buffer(const unsigned char *mesg, size_t mlen, const unsigned char *hmac, size_t hmaclen, unsigned char *key, size_t keyLen) {
     if (!mesg || !mlen || !hmac || !key) {
         fprintf(stderr, "Tried to validate hmac with invalid values.\nMesg: %p\nmlen: %zu\nHMAC: %p\nKey: %p\n", (void *) mesg, mlen, (void *) hmac, (void *) key);
@@ -195,6 +389,35 @@ bool verifyHMAC_Buffer(const unsigned char *mesg, size_t mlen, const unsigned ch
     return result;
 }
 
+/*
+ * FUNCTION: encrypt
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * size_t encrypt(const unsigned char *plaintext, size_t plaintextlen, const unsigned char *key, const unsigned char *iv, unsigned char *ciphertext);
+ *
+ * PARAMETERS:
+ * const unsigned char *plaintext - The plaintext
+ * size_t plaintextlen - The length of the plaintext
+ * const unsigned char *key - A buffer containing the encryption key
+ * const unsigned char *iv - A buffer containing the IV
+ * unsigned char *ciphertext - A buffer to write the ciphertext to
+ *
+ * RETURNS:
+ * size_t - The size of the ciphertext
+ *
+ * NOTES:
+ * Encrypts using AES-256-CBC.
+ * Ciphertext buffer must be at least plaintextlen + 16 bytes long.
+ */
 size_t encrypt(const unsigned char *plaintext, size_t plaintextlen, const unsigned char *key, const unsigned char *iv, unsigned char *ciphertext) {
     EVP_CIPHER_CTX *ctx;
     nullCheckCryptoAPICall(ctx = EVP_CIPHER_CTX_new());
@@ -216,6 +439,34 @@ size_t encrypt(const unsigned char *plaintext, size_t plaintextlen, const unsign
     return ciphertextlen;
 }
 
+/*
+ * FUNCTION: decrypt
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * size_t decrypt(const unsigned char *ciphertext, size_t ciphertextlen, const unsigned char *key, const unsigned char *iv, unsigned char *plaintext);
+ *
+ * PARAMETERS:
+ * const unsigned char *ciphertext - The buffer containing the ciphertext
+ * size_t ciphertextlen - The length of the ciphertext
+ * const unsigned char *key - The key to decrypt with
+ * const unsigned char *iv - The IV used in encrypting the ciphertext
+ * unsigned char *plaintext - A buffer to write the plaintext to
+ *
+ * RETURNS:
+ * size_t - The size of the plaintext
+ *
+ * NOTES:
+ * plaintext must be at least ciphertextlen bytes big.
+ */
 size_t decrypt(const unsigned char *ciphertext, size_t ciphertextlen, const unsigned char *key, const unsigned char *iv, unsigned char *plaintext) {
     EVP_CIPHER_CTX *ctx;
     nullCheckCryptoAPICall(ctx = EVP_CIPHER_CTX_new());
@@ -237,6 +488,28 @@ size_t decrypt(const unsigned char *ciphertext, size_t ciphertextlen, const unsi
     return plaintextlen;
 }
 
+/*
+ * FUNCTION: getPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * unsigned char *getPublicKey(EVP_PKEY *pkey, size_t *keyLen);
+ *
+ * PARAMETERS:
+ * EVP_PKEY *key - The keypair to extract the public key from
+ * size_t keyLen - A pointer to a buffer to write the public key length to
+ *
+ * RETURNS:
+ * unsigned char * - An allocate buffer containing the raw public key
+ */
 unsigned char *getPublicKey(EVP_PKEY *pkey, size_t *keyLen) {
     EC_KEY *eck;
     nullCheckCryptoAPICall(eck = EVP_PKEY_get1_EC_KEY(pkey));
@@ -269,6 +542,31 @@ unsigned char *getPublicKey(EVP_PKEY *pkey, size_t *keyLen) {
     return  rtn;
 }
 
+/*
+ * FUNCTION: setPublicKey
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len);
+ *
+ * PARAMETERS:
+ * const unsigned char *newPublic - A buffer containing the new public key to use
+ * size_t len - The length of the new public key
+ *
+ * RETURNS:
+ * EVP_PKEY * - An allocated keypair that has the public key set to newPublic
+ *
+ * NOTES:
+ * The returned EVP_PKEY struct will not have a valid private key, and using it is undefined
+ */
 EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len) {
     BN_CTX *bnctx;
     nullCheckCryptoAPICall(bnctx = BN_CTX_new());
@@ -297,6 +595,36 @@ EVP_PKEY *setPublicKey(const unsigned char *newPublic, size_t len) {
     return rtn;
 }
 
+/*
+ * FUNCTION: getSharedSecret
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey);
+ *
+ * PARAMETERS:
+ * EVP_PKEY *keypair - The original keyPair to use
+ * EVP_PKEY *clientPublicKey - The client's public key
+ *
+ * RETURNS:
+ * unsigned char * - A buffer containing the shared secret
+ *
+ * NOTES:
+ * keyPair must have a fully valid private and public key.
+ * clientPublicKey need only have the public key.
+ * The key pairs must be the same type of key.
+ * The keys must be able to be used to derive a shared secret.
+ * The shared secret is derived using ECDH.
+ * The resut of ECDH is hashed using SHA-256, and returned.
+ */
 unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey) {
     EVP_PKEY_CTX *ctx;
     nullCheckCryptoAPICall(ctx = EVP_PKEY_CTX_new(keypair, NULL));
@@ -336,6 +664,27 @@ unsigned char *getSharedSecret(EVP_PKEY *keypair, EVP_PKEY *clientPublicKey) {
     return hashedSecret;
 }
 
+/*
+ * FUNCTION: allocateKeyPair
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * EVP_PKEY *allocateKeyPair(void);
+ *
+ * RETURNS:
+ * EVP_PKEY * - The allocated key pair struct
+ *
+ * NOTES:
+ * Simple wrapper over api allocation call
+ */
 EVP_PKEY *allocateKeyPair(void) {
     EVP_PKEY *out;
     nullCheckCryptoAPICall(out = EVP_PKEY_new());
