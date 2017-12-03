@@ -1,3 +1,29 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  main.c
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  This file is the implementation of the lossy server's command parsing
+ *                  and epoll implementation.
+ *
+ *      Functions:  print_help();
+ *                  __iter_div_u64_rem();
+ *                  timespec_add_ns();
+ *                  main();
+ *
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:27:32 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+#include <stdlib.h>
+
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>

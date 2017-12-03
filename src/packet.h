@@ -1,3 +1,22 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  packet.h
+ *
+ *        Project:  7005-asn4-lossy
+ *
+ *    Description:  The raw packet structure for use in reading and writing
+ *
+ *        Version:  1.0
+ *        Created:  12/02/2017 03:43:28 PM
+ *       Revision:  none
+ *
+ *         Author:  Isaac Morneau (im), isaacmorneau@gmail.com
+ *
+ * =====================================================================================
+ */
+#include <stdlib.h>
+
 #ifndef PACKET_H
 #define PACKET_H
 
