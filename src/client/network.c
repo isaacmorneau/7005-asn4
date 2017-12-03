@@ -185,14 +185,14 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         src->ack = seqVal;
         pthread_mutex_unlock(&clientLock);
 
-        printf("isaac Received packet with sequence number %d\n", seqVal);
-        printf("isaac Previous sequence value we received %lu\n", previousSeq);
+        debug_print("isaac Received packet with sequence number %d\n", seqVal);
+        debug_print("isaac Previous sequence value we received %lu\n", previousSeq);
 
         if (seqVal > previousSeq) {
-            printf("isaac Writing to file\n");
+            debug_print("isaac Writing to file\n");
             write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
         } else {
-            printf("isaac Duplicate packet received\n");
+            debug_print("isaac Duplicate packet received\n");
         }
 
         previousSeq = seqVal;
