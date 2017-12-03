@@ -1,4 +1,21 @@
 /*
+ * SOURCE FILE: epoll.c - Implementation of functions declared in epoll.h
+ *
+ * PROGRAM: 7005-asn4
+ *
+ * DATE: Dec. 2, 2017
+ *
+ * FUNCTIONS:
+ * int createEpollFd(void);
+ * void addEpollSocket(const int epollfd, const int sock, struct epoll_event *ev);
+ * int waitForEpollEvent(const int epollfd, struct epoll_event *events);
+ * size_t singleEpollReadInstance(const int sock, unsigned char *buffer, const size_t bufSize);
+ *
+ * DESIGNER: John Agapeyev
+ *
+ * PROGRAMMER: John Agapeyev
+ */
+/*
  *Copyright (C) 2017 John Agapeyev
  *
  *This program is free software: you can redistribute it and/or modify

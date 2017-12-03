@@ -1,4 +1,24 @@
 /*
+ * SOURCE FILE: test.c - Test function implementations
+ *
+ * PROGRAM: 7005-asn4
+ *
+ * DATE: Dec. 2, 2017
+ *
+ * FUNCTIONS:
+ * void performTests(void);
+ * static bool testEncryptDecrypt(void);
+ * static bool testHMAC(void);
+ * static bool testECDH(void);
+ * static bool testGetSetKey(void);
+ * static void *threadRoutine(void *arg);
+ * static bool testKeyHMAC(void);
+ *
+ * DESIGNER: John Agapeyev
+ *
+ * PROGRAMMER: John Agapeyev
+ */
+/*
  *Copyright (C) 2017 John Agapeyev
  *
  *This program is free software: you can redistribute it and/or modify

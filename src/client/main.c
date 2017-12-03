@@ -1,4 +1,23 @@
 /*
+ * SOURCE FILE: main.c - Implementation of functions declared in main.h
+ *
+ * PROGRAM: 7005-asn4
+ *
+ * DATE: Dec. 2, 2017
+ *
+ * FUNCTIONS:
+ * static void sighandler(int signo);
+ * char *getUserInput(const char *prompt);
+ * void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size);
+ * void *checked_malloc(const size_t size);
+ * void *checked_calloc(const size_t nmemb, const size_t size);
+ * void *checked_realloc(void *ptr, const size_t size);
+ *
+ * DESIGNER: John Agapeyev
+ *
+ * PROGRAMMER: John Agapeyev
+ */
+/*
  *Copyright (C) 2017 John Agapeyev
  *
  *This program is free software: you can redistribute it and/or modify
