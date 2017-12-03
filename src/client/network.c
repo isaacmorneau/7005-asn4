@@ -102,7 +102,7 @@ bool ackReceived = false;
 #define MICRO_IN_SEC 1000ul * 1000ul
 #define NANO_IN_SEC 1000ul * MICRO_IN_SEC
 
-#define TIMEOUT_NS 10000ul * MICRO_IN_SEC
+#define TIMEOUT_NS 500ul * MICRO_IN_SEC
 #define MAX_RETRIES 30
 
 #define ACK_DELAY_NS 5ul * MICRO_IN_SEC
