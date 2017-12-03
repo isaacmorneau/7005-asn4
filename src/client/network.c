@@ -114,6 +114,8 @@ pthread_once_t threadCreateFlag = PTHREAD_ONCE_INIT;
 atomic_bool finishedSending = ATOMIC_VAR_INIT(false);
 atomic_bool finishedReceiving = ATOMIC_VAR_INIT(false);
 
+atomic_uint_fast16_t previousSeq = ATOMIC_VAR_INIT(0);
+
 void *waitAckReceived(void *args);
 void createAckThread(void);
 
@@ -182,9 +184,20 @@ void process_packet(const unsigned char * const buffer, const size_t bufsize, st
         pthread_mutex_lock(&clientLock);
         src->ack = seqVal;
         pthread_mutex_unlock(&clientLock);
+
+        printf("isaac Received packet with sequence number %d\n", seqVal);
+        printf("isaac Previous sequence value we received %lu\n", previousSeq);
+
+        if (seqVal > previousSeq) {
+            printf("isaac Writing to file\n");
+            write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
+        } else {
+            printf("isaac Duplicate packet received\n");
+        }
+
+        previousSeq = seqVal;
     }
 
-    write(outputFD, buffer + HEADER_SIZE - sizeof(uint16_t), bufsize - HEADER_SIZE + sizeof(uint16_t));
 
 #ifndef NDEBUG
     printf("Received packet of size %zu\n", bufsize);
