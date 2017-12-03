@@ -1,4 +1,45 @@
 /*
+ * HEADER FILE: network.h - The majority of the networking code
+ *
+ * PROGRAM: 7005-asn4
+ *
+ * DATE: Dec. 2, 2017
+ *
+ * FUNCTIONS:
+ * void network_init(void);
+ * void network_cleanup(void);
+ * void process_packet(const unsigned char * const buffer, const size_t bufsize, struct client *src);
+ * unsigned char *exchangeKeys(const int * const sock);
+ * bool receiveAndVerifyKey(const int * const sock, unsigned char *buffer, const size_t bufSize, const size_t keyLen, const size_t hmacLen);
+ * void startClient(const char *ip, const char *portString, int inputFD);
+ * void startServer(const int inputFD);
+ * size_t addClient(int sock);
+ * void initClientStruct(struct client *newClient, int sock);
+ * void *eventLoop(void *epollfd);
+ * void sendEncryptedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *dest, const bool isAck);
+ * void decryptReceivedUserData(const unsigned char *mesg, const size_t mesgLen, struct client *src);
+ * void sendReliablePacket(const unsigned char *mesg, const size_t mesgLen, struct client *dest);
+ * void handleIncomingConnection(const int efd);
+ * void handleSocketError(const int sock);
+ * void handleIncomingPacket(struct client *src);
+ * uint16_t readPacketLength(const int sock);
+ * void sendSigningKey(const int sock, const unsigned char *key, const size_t keyLen);
+ * void sendEphemeralKey(const int sock, struct client *clientEntry, const unsigned char *key, const size_t keyLen, const unsigned char *hmac, const size_t hmacLen);
+ * void readSigningKey(const int sock, struct client *clientEntry, const size_t keyLen);
+ *
+ * VARIABLES:
+ * extern bool isServer - Whether the application is running as the server or not
+ * extern EVP_PKEY *LongTermSigningKey - The long term signing key for the application
+ * extern struct client *clientList - A list of all connected clients
+ * extern size_t clientCount - The number of connected clients
+ * extern unsigned short port - The port to connect to/from
+ * extern int listenSock - The socket listening for incoming connections
+ *
+ * DESIGNER: John Agapeyev
+ *
+ * PROGRAMMER: John Agapeyev
+ */
+/*
  *Copyright (C) 2017 John Agapeyev
  *
  *This program is free software: you can redistribute it and/or modify

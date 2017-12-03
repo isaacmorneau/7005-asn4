@@ -1,4 +1,18 @@
 /*
+ * HEADER FILE: test.h - Tests for crypo function validity
+ *
+ * PROGRAM: 7005-asn4
+ *
+ * DATE: Dec. 2, 2017
+ *
+ * FUNCTIONS:
+ * void performTests(void);
+ *
+ * DESIGNER: John Agapeyev
+ *
+ * PROGRAMMER: John Agapeyev
+ */
+/*
  *Copyright (C) 2017 John Agapeyev
  *
  *This program is free software: you can redistribute it and/or modify
@@ -35,8 +49,6 @@
  */
 #ifndef TEST_H
 #define TEST_H
-
-#include <stdbool.h>
 
 void performTests(void);
 
