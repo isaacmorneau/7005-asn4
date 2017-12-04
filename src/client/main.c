@@ -98,12 +98,32 @@ static struct option long_options[] = {
             );\
     } while(0)
 
+/*
+ * FUNCTION: main
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * int main(int argc, char **argv)
+ *
+ * PARAMETERS:
+ * int argc - The number of command arguments
+ * char **argv - A list of the command arguments as strings
+ *
+ * RETURNS:
+ * int - The application return code
+ *
+ * NOTES:
+ * Validates command arguments and starts client/server from here
+ */
 int main(int argc, char **argv) {
-#ifndef NDEBUG
-    //performTests();
-    //return EXIT_SUCCESS;
-#endif
-
     isRunning = ATOMIC_VAR_INIT(1);
 
     struct sigaction sigHandleList = {.sa_handler=sighandler};
@@ -216,6 +236,32 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
+/*
+ * FUNCTION: getUserInput
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * char *getUserInput(const char *prompt);
+ *
+ * PARAMETERS:
+ * const char *prompt - The prompt string to print to the user
+ *
+ * RETURNS:
+ * char * - A buffer pointer to the string the user entered
+ *
+ * NOTES:
+ * Gets user input and stores it in a buffer.
+ * Limits user input to MAX_USER_BUFFER to prevent overflows.
+ * Guarantees null termination on the returned string.
+ */
 char *getUserInput(const char *prompt) {
     char *buffer = calloc(MAX_USER_BUFFER, sizeof(char));
     if (buffer == NULL) {
@@ -254,11 +300,63 @@ char *getUserInput(const char *prompt) {
     return buffer;
 }
 
+/*
+ * FUNCTION: sighandler
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void sighandler(int signo)
+ *
+ * PARAMETERS:
+ * int signo - The signal number received
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Sets isRunning to 0 to terminate program gracefully in the event of SIGINT or other
+ * user sent signals.
+ */
 void sighandler(int signo) {
     (void)(signo);
     isRunning = 0;
 }
 
+/*
+ * FUNCTION: debug_print_buffer
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size);
+ *
+ * PARAMETERS:
+ * const char *prompt - The prompt to show for debug purposes
+ * const unsigned char *buffer - The buffer to print out
+ * const size_t size - The size of the buffer
+ *
+ * RETURNS:
+ * void
+ *
+ * NOTES:
+ * Method is nop in release mode.
+ * For debug it is useful to see the raw hex contents of a buffer for checks such as HMAC verification.
+ */
 void debug_print_buffer(const char *prompt, const unsigned char *buffer, const size_t size) {
 #ifndef NDEBUG
     printf(prompt);
@@ -273,6 +371,30 @@ void debug_print_buffer(const char *prompt, const unsigned char *buffer, const s
 #endif
 }
 
+/*
+ * FUNCTION: checked_malloc
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void *checked_malloc(const size_t size);
+ *
+ * PARAMETERS:
+ * const size_t - The size to allocate
+ *
+ * RETURNS:
+ * void * - The allocated buffer
+ *
+ * NOTES:
+ * Simple wrapper to check for out of memory.
+ */
 void *checked_malloc(const size_t size) {
     void *rtn = malloc(size);
     if (rtn == NULL) {
@@ -281,6 +403,31 @@ void *checked_malloc(const size_t size) {
     return rtn;
 }
 
+/*
+ * FUNCTION: checked_calloc
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void *checked_calloc(const size_t nmemb, const size_t size);
+ *
+ * PARAMETERS:
+ * const size_t nmemb - The number of items to allocate
+ * const size_t - The size of each member
+ *
+ * RETURNS:
+ * void * - The allocated buffer
+ *
+ * NOTES:
+ * Simple wrapper to check for out of memory.
+ */
 void *checked_calloc(const size_t nmemb, const size_t size) {
     void *rtn = calloc(nmemb, size);
     if (rtn == NULL) {
@@ -289,6 +436,31 @@ void *checked_calloc(const size_t nmemb, const size_t size) {
     return rtn;
 }
 
+/*
+ * FUNCTION: checked_realloc
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void *checked_realloc(void *ptr, const size_t size);
+ *
+ * PARAMETERS:
+ * void *ptr - The old pointer
+ * const size_t - The size to allocate
+ *
+ * RETURNS:
+ * void * - The reallocated buffer
+ *
+ * NOTES:
+ * Simple wrapper to check for out of memory.
+ */
 void *checked_realloc(void *ptr, const size_t size) {
     void *rtn = realloc(ptr, size);
     if (rtn == NULL) {

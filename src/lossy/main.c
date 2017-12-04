@@ -354,7 +354,7 @@ int main(int argc, char ** argv) {
                                     //if you grep for this again im sorry to use it.
                                     printf("packet delayed %d: %d->%d\n", pkt.length, ((epoll_data *)events[i].data.ptr)->fd, ((epoll_data *)events[i].data.ptr)->link->fd);
 
-                                    clock_gettime(CLOCK_REALTIME, &time_to_wait);
+                                    memset(&time_to_wait, 0, sizeof(struct timespec));
                                     timespec_add_ns(&time_to_wait, delay);
                                     nanosleep(&time_to_wait, 0);
                                     packet_send(((epoll_data *)events[i].data.ptr)->link, &pkt);

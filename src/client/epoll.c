@@ -60,6 +60,24 @@
 #include "macro.h"
 #include "socket.h"
 
+/*
+ * FUNCTION: createEpollFd
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * int createEpollFd(void);
+ *
+ * RETURNS:
+ * int - The created epoll file descriptor
+ */
 int createEpollFd(void) {
     int efd;
     if ((efd = epoll_create1(0)) == -1) {
@@ -68,12 +86,57 @@ int createEpollFd(void) {
     return efd;
 }
 
+/*
+ * FUNCTION: addEpollSocket
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * void addEpollSocket(const int epollfd, const int sock, struct epoll_event *ev);
+ *
+ * PARAMETERS:
+ * const int epollfd - The epoll descriptor to add the socket to
+ * const int sock - The socket to add to epoll
+ * struct epoll_event *ev - The epoll_event struct saying how epoll should handle the socket
+ *
+ * RETURNS:
+ * void
+ */
 void addEpollSocket(const int epollfd, const int sock, struct epoll_event *ev) {
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, sock, ev) == -1) {
         fatal_error("epoll_ctl");
     }
 }
 
+/*
+ * FUNCTION: waitForEpollEvent
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * int waitForEpollEvent(const int epollfd, struct epoll_event *events);
+ *
+ * PARAMETERS:
+ * const int epollfd - The epoll descriptor to wait on
+ * struct epoll_event *events - The event list that epoll write too
+ *
+ * RETURNS:
+ * int - The number of events on the epoll descriptor
+ */
 int waitForEpollEvent(const int epollfd, struct epoll_event *events) {
     int nevents;
     if ((nevents = epoll_wait(epollfd, events, MAX_EPOLL_EVENTS, -1)) == -1) {
@@ -86,6 +149,34 @@ int waitForEpollEvent(const int epollfd, struct epoll_event *events) {
     return nevents;
 }
 
+/*
+ * FUNCTION: singleEpollReadInstance
+ *
+ * DATE:
+ * Dec. 2, 2017
+ *
+ * DESIGNER:
+ * John Agapeyev
+ *
+ * PROGRAMMER:
+ * John Agapeyev
+ *
+ * INTERFACE:
+ * size_t singleEpollReadInstance(const int sock, unsigned char *buffer, const size_t bufSize);
+ *
+ * PARAMETERS:
+ * const int sock - The socket to read on
+ * unsigned char *buffer - The buffer to write the packet to
+ * const size_t bufSize - The size of the buffer that was passed in
+ *
+ * RETURNS:
+ * size_t - The number of bytes read from the socket
+ *
+ * NOTES:
+ * Sometimes the application requires a one-off read on a socket, such as during the initial handshake.
+ * This function sets up a short and sweet epoll instance to do a single read on a socket, then clean
+ * up after itself.
+ */
 size_t singleEpollReadInstance(const int sock, unsigned char *buffer, const size_t bufSize) {
     int epollfd = createEpollFd();
 
